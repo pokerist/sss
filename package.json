@@ -1,0 +1,20 @@
+{
+  "name": "hotel-tv-management",
+  "version": "1.0.0",
+  "description": "White-label hotel TV management system with Oracle Opera PMS integration",
+  "main": "backend/server.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "keywords": ["hotel", "tv", "management", "pms", "oracle", "opera"],
+  "author": "Smart Stations Solutions",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
