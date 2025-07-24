@@ -192,7 +192,7 @@ setup_dev_environment() {
 create_dev_env() {
     log "Creating development environment configuration..."
     
-    if [[ -f "backend/.env" && "$FORCE_ENV_RECREATE" != "true" ]]; then
+    if [[ -f "backend/.env" && "${FORCE_ENV_RECREATE:-false}" != "true" ]]; then
         info "Development .env file already exists"
         return 0
     fi
