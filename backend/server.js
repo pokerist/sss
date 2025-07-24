@@ -4,7 +4,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
-const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
@@ -47,25 +46,6 @@ app.use(morgan('combined', { stream: { write: message => logger.info(message.tri
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: {
-    trustProxy: true, // ✅ يقول للمكتبة أننا نثق فقط في proxy واحد (لأنك استخدمت app.set('trust proxy', 1))
-  }
-});
-app.use('/api', limiter);
-
-// Device sync has special rate limiting
-const deviceSyncLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 20, // Allow more frequent device syncs
-  keyGenerator: (req) => req.body.device_id || req.ip
-});
-app.use('/api/device/sync', deviceSyncLimiter);
 
 // Create upload directory if it doesn't exist
 const uploadPath = process.env.UPLOAD_PATH || './uploads';
