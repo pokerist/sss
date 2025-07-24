@@ -904,12 +904,12 @@ verify_deployment() {
         local description="${endpoint_info##*:}"
         
         local retries=5
-        local success=false
+        local endpoint_success=false
         
         for i in $(seq 1 $retries); do
             if curl -s -f "$endpoint" >/dev/null 2>&1; then
                 success "$description is responding"
-                success=true
+                endpoint_success=true
                 break
             fi
             if [[ $i -lt $retries ]]; then
@@ -918,7 +918,7 @@ verify_deployment() {
             fi
         done
         
-        if [[ "$success" != "true" ]]; then
+        if [[ "$endpoint_success" != "true" ]]; then
             error "$description is not responding"
             verification_failed=true
         fi
