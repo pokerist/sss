@@ -122,49 +122,96 @@ app.use((req, res) => {
 // Initialize database and services
 async function startServer() {
   try {
+    logger.info('Starting Hotel TV Management System...');
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`Host: ${HOST}, Port: ${PORT}`);
+    
     // Connect to database
+    logger.info('Connecting to database...');
     await connectDB();
     logger.info('Database connected successfully');
     
     // Connect to Redis
+    logger.info('Connecting to Redis...');
     await connectRedis();
     logger.info('Redis connected successfully');
     
     // Start HTTP server
+    logger.info('Starting HTTP server...');
     const server = app.listen(PORT, HOST, () => {
-      logger.info(`Server running on http://${HOST}:${PORT}`);
+      logger.info(`✅ Server running on http://${HOST}:${PORT}`);
+    });
+    
+    // Handle server errors
+    server.on('error', (error) => {
+      logger.error('HTTP server error:', error);
+      process.exit(1);
     });
     
     // Initialize WebSocket server
+    logger.info('Initializing WebSocket server...');
     websocketService.init(server);
     logger.info('WebSocket server initialized');
     
     // Start background services
+    logger.info('Initializing PMS service...');
     await pmsService.init();
     logger.info('PMS service initialized');
     
+    logger.info('Starting scheduler service...');
     schedulerService.start();
     logger.info('Scheduler service started');
     
-    // Graceful shutdown
-    process.on('SIGTERM', async () => {
-      logger.info('SIGTERM received, shutting down gracefully');
-      server.close(() => {
-        logger.info('HTTP server closed');
-        process.exit(0);
-      });
-    });
+    logger.info('🚀 Hotel TV Management System started successfully!');
     
-    process.on('SIGINT', async () => {
-      logger.info('SIGINT received, shutting down gracefully');
-      server.close(() => {
-        logger.info('HTTP server closed');
-        process.exit(0);
-      });
-    });
+    // Graceful shutdown
+    const shutdown = async (signal) => {
+      logger.info(`${signal} received, shutting down gracefully`);
+      
+      try {
+        // Stop scheduler first
+        logger.info('Stopping scheduler service...');
+        schedulerService.stop();
+        
+        // Close server
+        logger.info('Closing HTTP server...');
+        server.close(() => {
+          logger.info('HTTP server closed');
+          process.exit(0);
+        });
+        
+        // Force exit after 30 seconds
+        setTimeout(() => {
+          logger.error('Forced shutdown after timeout');
+          process.exit(1);
+        }, 30000);
+        
+      } catch (error) {
+        logger.error('Error during shutdown:', error);
+        process.exit(1);
+      }
+    };
+    
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
     
   } catch (error) {
     logger.error('Failed to start server:', error);
+    logger.error('Error stack:', error.stack);
+    
+    // Try to identify the specific failure point
+    if (error.message.includes('Redis')) {
+      logger.error('❌ Redis connection failed. Check if Redis is running and configuration is correct.');
+    } else if (error.message.includes('database') || error.message.includes('PostgreSQL')) {
+      logger.error('❌ Database connection failed. Check if PostgreSQL is running and configuration is correct.');
+    } else if (error.message.includes('EADDRINUSE')) {
+      logger.error(`❌ Port ${PORT} is already in use. Check if another instance is running.`);
+    } else if (error.message.includes('EACCES')) {
+      logger.error('❌ Permission denied. Check if the application has proper permissions.');
+    } else {
+      logger.error('❌ Unknown startup error. Check the logs above for more details.');
+    }
+    
     process.exit(1);
   }
 }

@@ -5,23 +5,22 @@ let client;
 
 const connectRedis = async () => {
   try {
+    const redisUrl = `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`;
+    
     client = createClient({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6379,
-      retry_strategy: (options) => {
-        if (options.error && options.error.code === 'ECONNREFUSED') {
-          logger.error('Redis server connection refused');
-          return new Error('Redis server connection refused');
+      url: redisUrl,
+      socket: {
+        connectTimeout: 10000,
+        lazyConnect: true,
+        reconnectStrategy: (retries) => {
+          if (retries > 10) {
+            logger.error('Redis max reconnection attempts reached');
+            return false;
+          }
+          const delay = Math.min(retries * 100, 3000);
+          logger.warn(`Redis reconnecting in ${delay}ms (attempt ${retries})`);
+          return delay;
         }
-        if (options.total_retry_time > 1000 * 60 * 60) {
-          logger.error('Redis retry time exhausted');
-          return new Error('Retry time exhausted');
-        }
-        if (options.attempt > 10) {
-          logger.error('Redis max attempts reached');
-          return undefined;
-        }
-        return Math.min(options.attempt * 100, 3000);
       }
     });
 
@@ -35,6 +34,14 @@ const connectRedis = async () => {
 
     client.on('ready', () => {
       logger.info('Redis client ready');
+    });
+
+    client.on('reconnecting', () => {
+      logger.warn('Redis client reconnecting...');
+    });
+
+    client.on('end', () => {
+      logger.info('Redis client connection ended');
     });
 
     await client.connect();
