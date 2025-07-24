@@ -29,17 +29,22 @@ const websocketService = require('./src/services/websocketService');
 const app = express();
 app.set('trust proxy', true);
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.SERVER_HOST || 'localhost';
+const HOST = process.env.SERVER_HOST || '0.0.0.0';
 
-// Middleware
+// Middleware - Minimal security, maximum compatibility
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
 }));
+
+// Allow all origins for maximum compatibility
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [`http://${HOST}`, `https://${HOST}`] 
-    : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
+  origin: true, // Allow all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  optionsSuccessStatus: 200
 }));
 app.use(compression());
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));

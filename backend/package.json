@@ -24,7 +24,6 @@
     "joi": "^17.10.2",
     "winston": "^3.10.0",
     "compression": "^1.7.4",
-    "express-rate-limit": "^6.10.0",
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
