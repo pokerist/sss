@@ -5,221 +5,234 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}    Hotel TV Management System        ${NC}"
-echo -e "${BLUE}      Simple Deployment Script         ${NC}"
-echo -e "${BLUE}========================================${NC}"
+# Exit on any error
+set -e
+
+echo -e "${BLUE}==========================================${NC}"
+echo -e "${BLUE}    Hotel TV Management System         ${NC}"
+echo -e "${BLUE}    Fully Automated Deployment         ${NC}"
+echo -e "${BLUE}==========================================${NC}"
 echo ""
 
-# Function to prompt for input with default value
-prompt_with_default() {
-    local prompt="$1"
-    local default="$2"
-    local result
-    
-    if [ -n "$default" ]; then
-        read -p "$prompt [$default]: " result
-        echo "${result:-$default}"
-    else
-        read -p "$prompt: " result
-        echo "$result"
-    fi
-}
+# Check if running as root
+if [[ $EUID -eq 0 ]]; then
+   echo -e "${RED}This script should not be run as root. Please run as a regular user with sudo privileges.${NC}" 
+   exit 1
+fi
 
-# Function to prompt for password (hidden input)
-prompt_password() {
-    local prompt="$1"
-    local result
-    
-    read -s -p "$prompt: " result
-    echo ""
-    echo "$result"
-}
+# Auto-detect server IP
+DETECTED_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "Unable to detect")
+LOCAL_IP=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "127.0.0.1")
 
-echo -e "${YELLOW}This script will help you deploy the Hotel TV Management System${NC}"
-echo -e "${YELLOW}All security restrictions have been removed for easy deployment!${NC}"
+echo -e "${CYAN}🔍 Auto-detected IPs:${NC}"
+echo -e "   Public IP: ${YELLOW}$DETECTED_IP${NC}"
+echo -e "   Local IP:  ${YELLOW}$LOCAL_IP${NC}"
 echo ""
 
-# Get server information
-echo -e "${GREEN}=== Server Configuration ===${NC}"
-SERVER_IP=$(prompt_with_default "Enter server IP address" "0.0.0.0")
-SERVER_PORT=$(prompt_with_default "Enter server port" "3000")
-NODE_ENV=$(prompt_with_default "Enter environment (development/production)" "production")
+# Ask user to confirm IP
+echo -e "${GREEN}Which IP should the server use?${NC}"
+echo -e "1) Public IP: $DETECTED_IP (recommended for external access)"
+echo -e "2) Local IP: $LOCAL_IP (local network only)"
+echo -e "3) All interfaces: 0.0.0.0 (most flexible)"
+echo -e "4) Custom IP"
+echo ""
+read -p "Choose option (1-4) [1]: " ip_choice
+ip_choice=${ip_choice:-1}
+
+case $ip_choice in
+    1) SERVER_IP="$DETECTED_IP";;
+    2) SERVER_IP="$LOCAL_IP";;
+    3) SERVER_IP="0.0.0.0";;
+    4) read -p "Enter custom IP: " SERVER_IP;;
+    *) SERVER_IP="$DETECTED_IP";;
+esac
+
+# Basic settings
+read -p "Server port [3000]: " SERVER_PORT
+SERVER_PORT=${SERVER_PORT:-3000}
+
+# Generate secure credentials
+DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+JWT_SECRET=$(openssl rand -hex 32)
 
 echo ""
-echo -e "${GREEN}=== Database Configuration ===${NC}"
-DB_HOST=$(prompt_with_default "Enter database host" "localhost")
-DB_PORT=$(prompt_with_default "Enter database port" "5432")
-DB_NAME=$(prompt_with_default "Enter database name" "hotel_tv_db")
-DB_USER=$(prompt_with_default "Enter database username" "postgres")
-DB_PASSWORD=$(prompt_password "Enter database password")
-
+echo -e "${YELLOW}🚀 Starting automated deployment for Ubuntu...${NC}"
+echo -e "   Server IP: ${GREEN}$SERVER_IP${NC}"
+echo -e "   Port: ${GREEN}$SERVER_PORT${NC}"
 echo ""
-echo -e "${GREEN}=== Redis Configuration ===${NC}"
-REDIS_HOST=$(prompt_with_default "Enter Redis host" "localhost")
-REDIS_PORT=$(prompt_with_default "Enter Redis port" "6379")
-REDIS_PASSWORD=$(prompt_with_default "Enter Redis password (leave empty if none)" "")
 
-echo ""
-echo -e "${GREEN}=== Security Configuration ===${NC}"
-JWT_SECRET=$(prompt_with_default "Enter JWT secret (or press enter for auto-generated)" "$(openssl rand -hex 32)")
-JWT_EXPIRES=$(prompt_with_default "Enter JWT expiration time" "24h")
+# Update system
+echo -e "${CYAN}📦 Updating system packages...${NC}"
+sudo apt update -y && sudo apt upgrade -y
 
-echo ""
-echo -e "${GREEN}=== Optional Features ===${NC}"
-UPLOAD_PATH=$(prompt_with_default "Enter upload directory path" "./uploads")
+# Install system requirements
+echo -e "${CYAN}📦 Installing system requirements...${NC}"
+
+# Install curl and essential tools
+sudo apt install -y curl wget gnupg2 software-properties-common apt-transport-https ca-certificates
+
+# Install Node.js 18.x
+if ! command -v node &> /dev/null; then
+    echo -e "${YELLOW}Installing Node.js...${NC}"
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt install -y nodejs
+else
+    echo -e "${GREEN}✅ Node.js already installed${NC}"
+fi
+
+# Install PostgreSQL
+if ! command -v psql &> /dev/null; then
+    echo -e "${YELLOW}Installing PostgreSQL...${NC}"
+    sudo apt install -y postgresql postgresql-contrib
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+else
+    echo -e "${GREEN}✅ PostgreSQL already installed${NC}"
+fi
+
+# Install Redis
+if ! command -v redis-server &> /dev/null; then
+    echo -e "${YELLOW}Installing Redis...${NC}"
+    sudo apt install -y redis-server
+    sudo systemctl start redis-server
+    sudo systemctl enable redis-server
+else
+    echo -e "${GREEN}✅ Redis already installed${NC}"
+fi
+
+# Install PM2 globally
+if ! command -v pm2 &> /dev/null; then
+    echo -e "${YELLOW}Installing PM2...${NC}"
+    sudo npm install -g pm2
+else
+    echo -e "${GREEN}✅ PM2 already installed${NC}"
+fi
+
+# Configure PostgreSQL
+echo -e "${CYAN}🗄️  Configuring PostgreSQL...${NC}"
+
+# Drop existing database if exists and create new one
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS hotel_tv_db;" 2>/dev/null || true
+sudo -u postgres psql -c "DROP USER IF EXISTS hotel_tv_user;" 2>/dev/null || true
+
+# Create new database and user
+sudo -u postgres psql -c "CREATE USER hotel_tv_user WITH PASSWORD '$DB_PASSWORD';"
+sudo -u postgres psql -c "CREATE DATABASE hotel_tv_db OWNER hotel_tv_user;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE hotel_tv_db TO hotel_tv_user;"
+
+echo -e "${GREEN}✅ Database 'hotel_tv_db' created with user 'hotel_tv_user'${NC}"
 
 # Create .env file
-echo ""
-echo -e "${YELLOW}Creating .env file...${NC}"
+echo -e "${CYAN}⚙️  Creating configuration...${NC}"
 
 cat > backend/.env << EOF
 # Server Configuration
-NODE_ENV=$NODE_ENV
+NODE_ENV=production
 PORT=$SERVER_PORT
 SERVER_HOST=$SERVER_IP
 
-# Database Configuration
-DB_HOST=$DB_HOST
-DB_PORT=$DB_PORT
-DB_NAME=$DB_NAME
-DB_USER=$DB_USER
+# Database Configuration  
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=hotel_tv_db
+DB_USER=hotel_tv_user
 DB_PASSWORD=$DB_PASSWORD
 
 # Redis Configuration
-REDIS_HOST=$REDIS_HOST
-REDIS_PORT=$REDIS_PORT
-EOF
-
-if [ -n "$REDIS_PASSWORD" ]; then
-    echo "REDIS_PASSWORD=$REDIS_PASSWORD" >> backend/.env
-fi
-
-cat >> backend/.env << EOF
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
 # JWT Configuration
 JWT_SECRET=$JWT_SECRET
-JWT_EXPIRES_IN=$JWT_EXPIRES
+JWT_EXPIRES_IN=24h
 
 # Upload Configuration
-UPLOAD_PATH=$UPLOAD_PATH
+UPLOAD_PATH=./uploads
 
 # Logging
 LOG_LEVEL=info
 EOF
 
-echo -e "${GREEN}✅ .env file created successfully!${NC}"
+echo -e "${GREEN}✅ Configuration file created${NC}"
 
 # Install dependencies
-echo ""
-echo -e "${YELLOW}Installing backend dependencies...${NC}"
+echo -e "${CYAN}📚 Installing application dependencies...${NC}"
 cd backend
-npm install
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Backend dependencies installed successfully!${NC}"
-else
-    echo -e "${RED}❌ Failed to install backend dependencies${NC}"
-    exit 1
-fi
-
+npm install --production
 cd ..
 
-# Install frontend dependencies if frontend exists
+# Build frontend if exists
 if [ -d "frontend" ]; then
-    echo ""
-    echo -e "${YELLOW}Installing frontend dependencies...${NC}"
+    echo -e "${CYAN}🎨 Building frontend...${NC}"
     cd frontend
     npm install
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✅ Frontend dependencies installed successfully!${NC}"
-        
-        # Build frontend for production
-        if [ "$NODE_ENV" = "production" ]; then
-            echo -e "${YELLOW}Building frontend for production...${NC}"
-            npm run build
-            
-            if [ $? -eq 0 ]; then
-                echo -e "${GREEN}✅ Frontend built successfully!${NC}"
-            else
-                echo -e "${RED}❌ Failed to build frontend${NC}"
-            fi
-        fi
-    else
-        echo -e "${RED}❌ Failed to install frontend dependencies${NC}"
-    fi
+    npm run build
     cd ..
+    echo -e "${GREEN}✅ Frontend built successfully${NC}"
 fi
 
 # Create uploads directory
-echo ""
-echo -e "${YELLOW}Creating upload directory...${NC}"
-mkdir -p "$UPLOAD_PATH"
-echo -e "${GREEN}✅ Upload directory created: $UPLOAD_PATH${NC}"
+mkdir -p backend/uploads
+chmod 755 backend/uploads
 
-# Database setup prompt
-echo ""
-echo -e "${BLUE}=== Database Setup ===${NC}"
-read -p "Do you want to run database migrations now? (y/n): " run_migrations
+# Run database migrations
+echo -e "${CYAN}🗄️  Setting up database...${NC}"
+cd backend
+npm run migrate
+cd ..
+echo -e "${GREEN}✅ Database initialized${NC}"
 
-if [ "$run_migrations" = "y" ] || [ "$run_migrations" = "Y" ]; then
-    echo -e "${YELLOW}Running database migrations...${NC}"
-    cd backend
-    npm run migrate
-    cd ..
-    echo -e "${GREEN}✅ Database migrations completed!${NC}"
-fi
+# Configure firewall (allow the port)
+echo -e "${CYAN}🔥 Configuring firewall...${NC}"
+sudo ufw allow $SERVER_PORT/tcp
+sudo ufw --force enable
 
-# PM2 setup
-echo ""
-echo -e "${BLUE}=== PM2 Setup ===${NC}"
-read -p "Do you want to start the app with PM2? (y/n): " use_pm2
+# Stop any existing PM2 processes
+pm2 stop hotel-tv-backend 2>/dev/null || true
+pm2 delete hotel-tv-backend 2>/dev/null || true
 
-if [ "$use_pm2" = "y" ] || [ "$use_pm2" = "Y" ]; then
-    # Check if PM2 is installed
-    if ! command -v pm2 &> /dev/null; then
-        echo -e "${YELLOW}PM2 not found. Installing PM2...${NC}"
-        npm install -g pm2
-    fi
-    
-    echo -e "${YELLOW}Starting application with PM2...${NC}"
-    cd backend
-    pm2 stop hotel-tv-backend 2>/dev/null || true
-    pm2 delete hotel-tv-backend 2>/dev/null || true
-    pm2 start server.js --name hotel-tv-backend
-    pm2 save
-    pm2 startup
-    cd ..
-    
-    echo -e "${GREEN}✅ Application started with PM2!${NC}"
-    echo -e "${BLUE}Use 'pm2 logs hotel-tv-backend' to view logs${NC}"
-    echo -e "${BLUE}Use 'pm2 restart hotel-tv-backend' to restart${NC}"
+# Start application with PM2
+echo -e "${CYAN}🚀 Starting application...${NC}"
+cd backend
+pm2 start server.js --name hotel-tv-backend
+pm2 save
+pm2 startup | grep -E '^sudo ' | bash || true
+cd ..
+
+# Final health check
+echo -e "${CYAN}🏥 Performing health check...${NC}"
+sleep 5
+
+if curl -f -s "http://localhost:$SERVER_PORT/api/health" > /dev/null; then
+    echo -e "${GREEN}✅ Application is running successfully!${NC}"
 else
-    echo -e "${YELLOW}You can start the application manually with:${NC}"
-    echo -e "${BLUE}cd backend && npm start${NC}"
+    echo -e "${YELLOW}⚠️  Application started but health check failed. Check logs with: pm2 logs hotel-tv-backend${NC}"
 fi
 
 echo ""
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}     🚀 DEPLOYMENT COMPLETED! 🚀       ${NC}"
-echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}==========================================${NC}"
+echo -e "${GREEN}      🎉 DEPLOYMENT COMPLETED! 🎉       ${NC}"
+echo -e "${GREEN}==========================================${NC}"
 echo ""
-echo -e "${BLUE}Your application is configured to run on:${NC}"
-echo -e "${YELLOW}http://$SERVER_IP:$SERVER_PORT${NC}"
+echo -e "${BLUE}📋 Deployment Summary:${NC}"
+echo -e "   🌐 Server URL: ${YELLOW}http://$SERVER_IP:$SERVER_PORT${NC}"
+echo -e "   🗄️  Database: ${GREEN}hotel_tv_db${NC} (PostgreSQL)"
+echo -e "   🔑 DB User: ${GREEN}hotel_tv_user${NC}"
+echo -e "   🔒 DB Password: ${GREEN}$DB_PASSWORD${NC}"
+echo -e "   🚀 Process Manager: ${GREEN}PM2${NC}"
 echo ""
-echo -e "${BLUE}Features enabled:${NC}"
-echo -e "${GREEN}✅ No rate limiting${NC}"
-echo -e "${GREEN}✅ No CORS restrictions${NC}"
-echo -e "${GREEN}✅ Optional authentication${NC}"
-echo -e "${GREEN}✅ Works on any server IP${NC}"
-echo -e "${GREEN}✅ Direct API access${NC}"
+echo -e "${BLUE}🔧 Management Commands:${NC}"
+echo -e "   View logs: ${CYAN}pm2 logs hotel-tv-backend${NC}"
+echo -e "   Restart app: ${CYAN}pm2 restart hotel-tv-backend${NC}"
+echo -e "   Stop app: ${CYAN}pm2 stop hotel-tv-backend${NC}"
+echo -e "   App status: ${CYAN}pm2 status${NC}"
 echo ""
-echo -e "${BLUE}Test your deployment:${NC}"
-echo -e "${YELLOW}curl http://$SERVER_IP:$SERVER_PORT/api/health${NC}"
+echo -e "${BLUE}🧪 Test Your Deployment:${NC}"
+echo -e "   ${CYAN}curl http://$SERVER_IP:$SERVER_PORT/api/health${NC}"
 echo ""
-echo -e "${BLUE}Configuration saved in:${NC}"
-echo -e "${YELLOW}backend/.env${NC}"
+echo -e "${GREEN}🎯 Your Hotel TV Management System is ready to use!${NC}"
+echo -e "${GREEN}All security restrictions removed - works anywhere! 🎉${NC}"
 echo ""
