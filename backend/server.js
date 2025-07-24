@@ -63,7 +63,7 @@ app.use('/uploads', express.static(uploadPath));
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/device', deviceRoutes);
+app.use('/api/devices', deviceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/apps', appRoutes);
