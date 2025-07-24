@@ -50,12 +50,12 @@ detect_ip() {
 }
 
 # Check if running as root
-check_root() {
-    if [ "$EUID" -eq 0 ]; then
-        error "Please do not run this script as root"
-        exit 1
-    fi
-}
+#check_root() {
+ #   if [ "$EUID" -eq 0 ]; then
+  #      error "Please do not run this script as root"
+   #     exit 1
+    #fi
+#}
 
 # Update system packages
 update_system() {
@@ -415,7 +415,7 @@ main() {
     echo ""
     
     # Pre-deployment checks
-    check_root
+    #check_root
     detect_ip
     
     echo ""
