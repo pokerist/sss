@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { mediaAPI } from '../services/api'
-import { Image, Plus, Upload, Trash2, Edit, X } from 'lucide-react'
+import { Image, Plus, Upload, Trash2, Edit, X, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function BundleEditModal({ bundle, onClose, onSave }) {
@@ -193,9 +193,92 @@ function UploadModal({ bundle, onClose, onUpload }) {
   )
 }
 
+function ContentViewModal({ bundle, onClose }) {
+  const { data: content, isLoading } = useQuery(
+    ['bundle-content', bundle?.id],
+    () => mediaAPI.getBundleContent(bundle.id),
+    {
+      enabled: !!bundle
+    }
+  )
+
+  if (!bundle) return null
+
+  const contentList = content?.data?.content || []
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Content in "{bundle.name}"</h3>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : contentList.length === 0 ? (
+          <div className="text-center py-8">
+            <Image className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">No content in this bundle yet</p>
+          </div>
+        ) : (
+          <div className="overflow-y-auto max-h-[70vh]">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {contentList.map((item) => (
+                <div key={item.id} className="border rounded-lg overflow-hidden">
+                  <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                    {item.type === 'image' ? (
+                      <img
+                        src={item.content_url}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center text-gray-500">
+                        <svg className="h-8 w-8 mb-2" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM10 15.5v-7l6 3.5-6 3.5z"/>
+                        </svg>
+                        <span className="text-xs">Video</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-medium text-gray-900 truncate" title={item.title}>
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-gray-500 capitalize">{item.type}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={onClose}
+            className="btn btn-secondary btn-md"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MediaBundles() {
   const [selectedBundle, setSelectedBundle] = useState(null)
   const [uploadingBundle, setUploadingBundle] = useState(null)
+  const [viewingBundle, setViewingBundle] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newBundleName, setNewBundleName] = useState('')
   
@@ -363,7 +446,14 @@ function MediaBundles() {
               </div>
             </div>
             
-            <div className="mt-4">
+            <div className="mt-4 space-y-2">
+              <button 
+                onClick={() => setViewingBundle(bundle)}
+                className="btn btn-ghost btn-sm w-full"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Content ({bundle.content_count || 0})
+              </button>
               <button 
                 onClick={() => handleUploadContent(bundle)}
                 className="btn btn-secondary btn-sm w-full"
@@ -446,6 +536,14 @@ function MediaBundles() {
           bundle={uploadingBundle}
           onClose={() => setUploadingBundle(null)}
           onUpload={handleUpload}
+        />
+      )}
+
+      {/* Content View Modal */}
+      {viewingBundle && (
+        <ContentViewModal
+          bundle={viewingBundle}
+          onClose={() => setViewingBundle(null)}
         />
       )}
     </div>

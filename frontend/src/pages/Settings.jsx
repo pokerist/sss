@@ -57,10 +57,28 @@ function Settings() {
     confirmPassword: ''
   })
   const [pmsTestResult, setPmsTestResult] = useState(null)
+  const [formData, setFormData] = useState({
+    hotel_name: '',
+    pms_base_url: '',
+    pms_api_key: '',
+    pms_username: '',
+    pms_password: ''
+  })
 
   const queryClient = useQueryClient()
 
-  const { data: settings, isLoading } = useQuery('system-settings', settingsAPI.getSystemSettings)
+  const { data: settings, isLoading } = useQuery('system-settings', settingsAPI.getSystemSettings, {
+    onSuccess: (data) => {
+      const systemSettings = data?.data || {}
+      setFormData({
+        hotel_name: systemSettings.hotel_name || '',
+        pms_base_url: systemSettings.pms_base_url || '',
+        pms_api_key: systemSettings.pms_api_key || '',
+        pms_username: systemSettings.pms_username || '',
+        pms_password: ''
+      })
+    }
+  })
 
   const updateSettingsMutation = useMutation(
     (formData) => settingsAPI.updateSystemSettings(formData),
@@ -212,7 +230,8 @@ function Settings() {
                 type="text"
                 name="hotel_name"
                 className="input w-full"
-                defaultValue={systemSettings.hotel_name}
+                value={formData.hotel_name}
+                onChange={(e) => setFormData({ ...formData, hotel_name: e.target.value })}
                 placeholder="Enter hotel name"
               />
             </div>
@@ -285,7 +304,8 @@ function Settings() {
                   type="url"
                   name="pms_base_url"
                   className="input w-full"
-                  defaultValue={systemSettings.pms_base_url}
+                  value={formData.pms_base_url}
+                  onChange={(e) => setFormData({ ...formData, pms_base_url: e.target.value })}
                   placeholder="https://your-opera-cloud.com"
                 />
               </div>
@@ -298,7 +318,8 @@ function Settings() {
                   type="text"
                   name="pms_api_key"
                   className="input w-full"
-                  defaultValue={systemSettings.pms_api_key}
+                  value={formData.pms_api_key}
+                  onChange={(e) => setFormData({ ...formData, pms_api_key: e.target.value })}
                   placeholder="Enter API key"
                 />
               </div>
@@ -312,7 +333,8 @@ function Settings() {
                     type="text"
                     name="pms_username"
                     className="input w-full"
-                    defaultValue={systemSettings.pms_username}
+                    value={formData.pms_username}
+                    onChange={(e) => setFormData({ ...formData, pms_username: e.target.value })}
                     placeholder="API username"
                   />
                 </div>
@@ -325,6 +347,8 @@ function Settings() {
                     type="password"
                     name="pms_password"
                     className="input w-full"
+                    value={formData.pms_password}
+                    onChange={(e) => setFormData({ ...formData, pms_password: e.target.value })}
                     placeholder="API password"
                   />
                 </div>

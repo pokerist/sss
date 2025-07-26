@@ -26,6 +26,11 @@ export const WebSocketProvider = ({ children }) => {
       return
     }
 
+    // Prevent multiple connection attempts
+    if (ws.current && ws.current.readyState === WebSocket.CONNECTING) {
+      return
+    }
+
     try {
       const token = localStorage.getItem('token')
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -58,9 +63,18 @@ export const WebSocketProvider = ({ children }) => {
         setIsConnected(false)
         setConnectionStatus('disconnected')
         
-        // Only attempt to reconnect if it wasn't a manual close
-        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
+        // Only attempt to reconnect if it wasn't a manual close and we haven't exceeded max attempts
+        if (event.code !== 1000 && event.code !== 1001 && reconnectAttempts.current < maxReconnectAttempts) {
+          // Don't reconnect immediately on auth failures
+          if (event.code === 1002 || event.code === 1008) {
+            console.log('WebSocket authentication failed, not reconnecting')
+            return
+          }
+          
           scheduleReconnect()
+        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+          console.log('Max reconnection attempts reached')
+          setConnectionStatus('failed')
         }
       }
 

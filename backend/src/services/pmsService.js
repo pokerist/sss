@@ -43,22 +43,36 @@ class PMSService {
         LIMIT 1
       `);
 
+      // Reset config first
+      this.config = null;
+
       if (result.rows.length > 0) {
         const settings = result.rows[0];
         
-        if (settings.pms_base_url && settings.pms_api_key && 
-            settings.pms_username && settings.pms_password_hash) {
+        // Validate that all required fields are present and not empty
+        if (settings.pms_base_url && settings.pms_base_url.trim() &&
+            settings.pms_api_key && settings.pms_api_key.trim() && 
+            settings.pms_username && settings.pms_username.trim() &&
+            settings.pms_password_hash && settings.pms_password_hash.trim()) {
+          
           this.config = {
-            baseUrl: settings.pms_base_url,
-            apiKey: settings.pms_api_key,
-            username: settings.pms_username,
-            passwordHash: settings.pms_password_hash,
-            connectionStatus: settings.pms_connection_status
+            baseUrl: settings.pms_base_url.trim(),
+            apiKey: settings.pms_api_key.trim(),
+            username: settings.pms_username.trim(),
+            passwordHash: settings.pms_password_hash.trim(),
+            connectionStatus: settings.pms_connection_status || 'disconnected'
           };
+          
+          logger.debug('PMS configuration loaded successfully');
+        } else {
+          logger.debug('PMS configuration incomplete - missing required fields');
         }
+      } else {
+        logger.debug('No system settings found - PMS not configured');
       }
     } catch (error) {
       logger.error('Failed to load PMS configuration:', error);
+      this.config = null;
       throw error;
     }
   }
