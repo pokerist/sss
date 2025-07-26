@@ -238,7 +238,7 @@ cat > backend/.env << EOF
 # Server Configuration
 NODE_ENV=production
 PORT=$SERVER_PORT
-SERVER_HOST=$SERVER_IP
+SERVER_HOST=0.0.0.0
 
 # Database Configuration  
 DB_HOST=localhost
