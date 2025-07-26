@@ -71,6 +71,18 @@ sudo apt update -y && sudo apt upgrade -y
 # Install system requirements
 echo -e "${CYAN}📦 Installing system requirements...${NC}"
 
+# Remove old PostgreSQL completely (optional, destructive)
+echo -e "${YELLOW}Removing old PostgreSQL installations and data (if any)...${NC}"
+sudo systemctl stop postgresql || true
+sudo apt -y purge postgresql* || true
+sudo apt -y autoremove --purge || true
+sudo rm -rf /var/lib/postgresql/ || true
+sudo rm -rf /etc/postgresql/ || true
+sudo rm -rf /etc/postgresql-common/ || true
+sudo rm -rf /var/log/postgresql/ || true
+sudo rm -rf /var/run/postgresql/ || true
+
+
 # Install curl and essential tools
 sudo apt install -y curl wget gnupg2 software-properties-common apt-transport-https ca-certificates
 
@@ -84,14 +96,12 @@ else
 fi
 
 # Install PostgreSQL
-if ! command -v psql &> /dev/null; then
-    echo -e "${YELLOW}Installing PostgreSQL...${NC}"
-    sudo apt install -y postgresql postgresql-contrib
-    sudo systemctl start postgresql
-    sudo systemctl enable postgresql
-else
-    echo -e "${GREEN}✅ PostgreSQL already installed${NC}"
-fi
+echo -e "${YELLOW}Installing fresh PostgreSQL...${NC}"
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
 
 # Install Redis
 if ! command -v redis-server &> /dev/null; then
