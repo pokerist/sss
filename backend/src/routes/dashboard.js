@@ -16,9 +16,10 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const activeDevicesResult = await query('SELECT COUNT(*) FROM devices WHERE status = $1', ['active']);
     const activeDevices = parseInt(activeDevicesResult.rows[0].count);
 
-    // Get online devices count
+    // Get online devices count (devices that synced in last 10 minutes)
     const onlineDevicesResult = await query(
-      'SELECT COUNT(*) FROM devices WHERE is_online = true AND last_sync > NOW() - INTERVAL \'5 minutes\''
+      'SELECT COUNT(*) FROM devices WHERE status = $1 AND (is_online = true OR last_sync > NOW() - INTERVAL \'10 minutes\')',
+      ['active']
     );
     const onlineDevices = parseInt(onlineDevicesResult.rows[0].count);
 

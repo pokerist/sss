@@ -168,7 +168,8 @@ class PMSService {
   }
 
   async startSync() {
-    if (!this.isInitialized || this.syncInProgress) {
+    if (!this.isInitialized || this.syncInProgress || !this.config) {
+      logger.debug('PMS sync skipped - not initialized, already in progress, or not configured');
       return;
     }
 

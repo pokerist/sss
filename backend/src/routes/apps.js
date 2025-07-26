@@ -107,12 +107,17 @@ router.post('/', authenticateToken, upload.fields([
     let apkUrl = null;
     let logoUrl = null;
 
+    // Get server base URL
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+
     if (req.files?.apk) {
-      apkUrl = `/uploads/apks/${req.files.apk[0].filename}`;
+      apkUrl = `${baseUrl}/uploads/apks/${req.files.apk[0].filename}`;
     }
 
     if (req.files?.logo) {
-      logoUrl = `/uploads/logos/${req.files.logo[0].filename}`;
+      logoUrl = `${baseUrl}/uploads/logos/${req.files.logo[0].filename}`;
     }
 
     const result = await query(
@@ -212,32 +217,43 @@ router.put('/:id', authenticateToken, upload.fields([
     }
 
     // Handle file uploads
-    if (req.files?.apk) {
-      // Delete old APK file
-      if (currentApp.apk_url) {
-        const oldApkPath = path.join(process.env.UPLOAD_PATH || './uploads', currentApp.apk_url);
-        if (fs.existsSync(oldApkPath)) {
-          fs.unlinkSync(oldApkPath);
-        }
-      }
-      
-      paramCount++;
-      updates.push(`apk_url = $${paramCount}`);
-      params.push(`/uploads/apks/${req.files.apk[0].filename}`);
-    }
+    if (req.files?.apk || req.files?.logo) {
+      // Get server base URL
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
 
-    if (req.files?.logo) {
-      // Delete old logo file
-      if (currentApp.app_logo_url) {
-        const oldLogoPath = path.join(process.env.UPLOAD_PATH || './uploads', currentApp.app_logo_url);
-        if (fs.existsSync(oldLogoPath)) {
-          fs.unlinkSync(oldLogoPath);
+      if (req.files?.apk) {
+        // Delete old APK file
+        if (currentApp.apk_url) {
+          // Extract relative path from URL for file deletion
+          const relativePath = currentApp.apk_url.replace(/^https?:\/\/[^\/]+/, '');
+          const oldApkPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
+          if (fs.existsSync(oldApkPath)) {
+            fs.unlinkSync(oldApkPath);
+          }
         }
+        
+        paramCount++;
+        updates.push(`apk_url = $${paramCount}`);
+        params.push(`${baseUrl}/uploads/apks/${req.files.apk[0].filename}`);
       }
-      
-      paramCount++;
-      updates.push(`app_logo_url = $${paramCount}`);
-      params.push(`/uploads/logos/${req.files.logo[0].filename}`);
+
+      if (req.files?.logo) {
+        // Delete old logo file
+        if (currentApp.app_logo_url) {
+          // Extract relative path from URL for file deletion
+          const relativePath = currentApp.app_logo_url.replace(/^https?:\/\/[^\/]+/, '');
+          const oldLogoPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
+          if (fs.existsSync(oldLogoPath)) {
+            fs.unlinkSync(oldLogoPath);
+          }
+        }
+        
+        paramCount++;
+        updates.push(`app_logo_url = $${paramCount}`);
+        params.push(`${baseUrl}/uploads/logos/${req.files.logo[0].filename}`);
+      }
     }
 
     if (updates.length === 0) {
@@ -305,14 +321,18 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
     // Delete physical files
     if (deletedApp.apk_url) {
-      const apkPath = path.join(process.env.UPLOAD_PATH || './uploads', deletedApp.apk_url);
+      // Extract relative path from URL for file deletion
+      const relativePath = deletedApp.apk_url.replace(/^https?:\/\/[^\/]+/, '');
+      const apkPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
       if (fs.existsSync(apkPath)) {
         fs.unlinkSync(apkPath);
       }
     }
 
     if (deletedApp.app_logo_url) {
-      const logoPath = path.join(process.env.UPLOAD_PATH || './uploads', deletedApp.app_logo_url);
+      // Extract relative path from URL for file deletion
+      const relativePath = deletedApp.app_logo_url.replace(/^https?:\/\/[^\/]+/, '');
+      const logoPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
       if (fs.existsSync(logoPath)) {
         fs.unlinkSync(logoPath);
       }
@@ -398,14 +418,18 @@ router.post('/bulk-delete', authenticateToken, async (req, res) => {
     // Delete physical files
     appsResult.rows.forEach(app => {
       if (app.apk_url) {
-        const apkPath = path.join(process.env.UPLOAD_PATH || './uploads', app.apk_url);
+        // Extract relative path from URL for file deletion
+        const relativePath = app.apk_url.replace(/^https?:\/\/[^\/]+/, '');
+        const apkPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
         if (fs.existsSync(apkPath)) {
           fs.unlinkSync(apkPath);
         }
       }
 
       if (app.app_logo_url) {
-        const logoPath = path.join(process.env.UPLOAD_PATH || './uploads', app.app_logo_url);
+        // Extract relative path from URL for file deletion
+        const relativePath = app.app_logo_url.replace(/^https?:\/\/[^\/]+/, '');
+        const logoPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
         if (fs.existsSync(logoPath)) {
           fs.unlinkSync(logoPath);
         }

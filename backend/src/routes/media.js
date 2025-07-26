@@ -256,7 +256,9 @@ router.delete('/bundles/:id', authenticateToken, async (req, res) => {
 
     // Delete physical files
     contentResult.rows.forEach(row => {
-      const filePath = path.join(process.env.UPLOAD_PATH || './uploads', row.content_url);
+      // Extract relative path from URL for file deletion
+      const relativePath = row.content_url.replace(/^https?:\/\/[^\/]+/, '');
+      const filePath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
@@ -304,13 +306,18 @@ router.post('/bundles/:id/upload', authenticateToken, upload.array('files', 10),
     );
     let currentOrder = parseInt(maxOrderResult.rows[0].max_order);
 
+    // Get server base URL
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+
     // Insert content records
     const uploadedContent = [];
     for (const file of files) {
       currentOrder++;
       
       const type = file.mimetype.startsWith('image/') ? 'image' : 'video';
-      const contentUrl = `/uploads/media/${file.filename}`;
+      const contentUrl = `${baseUrl}/uploads/media/${file.filename}`;
       
       const result = await query(
         'INSERT INTO media_content (bundle_id, type, content_url, title, order_index) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -368,7 +375,9 @@ router.delete('/content/:id', authenticateToken, async (req, res) => {
     const deletedContent = result.rows[0];
 
     // Delete physical file
-    const filePath = path.join(process.env.UPLOAD_PATH || './uploads', deletedContent.content_url);
+    // Extract relative path from URL for file deletion
+    const relativePath = deletedContent.content_url.replace(/^https?:\/\/[^\/]+/, '');
+    const filePath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
@@ -422,7 +431,9 @@ router.post('/bundles/bulk-delete', authenticateToken, async (req, res) => {
 
     // Delete physical files
     contentResult.rows.forEach(row => {
-      const filePath = path.join(process.env.UPLOAD_PATH || './uploads', row.content_url);
+      // Extract relative path from URL for file deletion
+      const relativePath = row.content_url.replace(/^https?:\/\/[^\/]+/, '');
+      const filePath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }

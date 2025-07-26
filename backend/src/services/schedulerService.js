@@ -16,11 +16,17 @@ class SchedulerService {
     }
 
     try {
-      // PMS Sync - every 5 minutes
+      // PMS Sync - every 5 minutes (only if PMS is properly configured)
       const pmsSyncJob = cron.schedule('*/5 * * * *', async () => {
-        logger.debug('Running scheduled PMS sync');
+        logger.debug('Checking PMS configuration for scheduled sync');
         try {
-          await pmsService.startSync();
+          const pmsStatus = pmsService.getSyncStatus();
+          if (pmsStatus.isInitialized && pmsService.config) {
+            logger.debug('Running scheduled PMS sync');
+            await pmsService.startSync();
+          } else {
+            logger.debug('PMS not configured, skipping sync');
+          }
         } catch (error) {
           logger.error('Scheduled PMS sync failed:', error);
         }

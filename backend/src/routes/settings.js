@@ -131,9 +131,16 @@ router.put('/system', authenticateToken, upload.single('hotel_logo'), async (req
 
     // Handle logo upload
     if (req.file) {
+      // Get server base URL
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+
       // Delete old logo if exists
       if (currentSettings.hotel_logo_url) {
-        const oldLogoPath = path.join(process.env.UPLOAD_PATH || './uploads', currentSettings.hotel_logo_url);
+        // Extract relative path from URL for file deletion
+        const relativePath = currentSettings.hotel_logo_url.replace(/^https?:\/\/[^\/]+/, '');
+        const oldLogoPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
         if (fs.existsSync(oldLogoPath)) {
           fs.unlinkSync(oldLogoPath);
         }
@@ -141,7 +148,7 @@ router.put('/system', authenticateToken, upload.single('hotel_logo'), async (req
       
       paramCount++;
       updates.push(`hotel_logo_url = $${paramCount}`);
-      params.push(`/uploads/logos/${req.file.filename}`);
+      params.push(`${baseUrl}/uploads/logos/${req.file.filename}`);
     }
 
     // Handle PMS settings

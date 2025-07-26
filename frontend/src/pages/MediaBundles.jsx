@@ -1,11 +1,201 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { mediaAPI } from '../services/api'
-import { Image, Plus, Upload, Trash2, Edit } from 'lucide-react'
+import { Image, Plus, Upload, Trash2, Edit, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+function BundleEditModal({ bundle, onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    name: bundle?.name || '',
+    is_default: bundle?.is_default || false
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!formData.name.trim()) {
+      toast.error('Bundle name is required')
+      return
+    }
+    onSave(bundle.id, formData)
+  }
+
+  if (!bundle) return null
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Edit Bundle</h3>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Bundle Name *
+            </label>
+            <input
+              type="text"
+              className="input w-full"
+              placeholder="Enter bundle name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="is_default"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              checked={formData.is_default}
+              onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+            />
+            <label htmlFor="is_default" className="ml-2 block text-sm text-gray-900">
+              Set as default bundle
+            </label>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary btn-md"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary btn-md"
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function UploadModal({ bundle, onClose, onUpload }) {
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [uploading, setUploading] = useState(false)
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files)
+    const validFiles = files.filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    )
+    
+    if (validFiles.length !== files.length) {
+      toast.error('Only image and video files are allowed')
+    }
+    
+    setSelectedFiles(validFiles)
+  }
+
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error('Please select files to upload')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      selectedFiles.forEach(file => {
+        formData.append('files', file)
+      })
+
+      await onUpload(bundle.id, formData)
+      onClose()
+    } catch (error) {
+      toast.error('Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  if (!bundle) return null
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Upload Content to "{bundle.name}"</h3>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Files
+            </label>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              onChange={handleFileSelect}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Select multiple images and videos. Max 10 files.
+            </p>
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Files:</h4>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
+                    <span className="truncate">{file.name}</span>
+                    <span className="text-gray-500 ml-2">
+                      {(file.size / 1024 / 1024).toFixed(1)}MB
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary btn-md"
+              disabled={uploading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={uploading || selectedFiles.length === 0}
+              className="btn btn-primary btn-md"
+            >
+              {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File(s)`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function MediaBundles() {
   const [selectedBundle, setSelectedBundle] = useState(null)
+  const [uploadingBundle, setUploadingBundle] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newBundleName, setNewBundleName] = useState('')
   
@@ -25,6 +215,28 @@ function MediaBundles() {
     }
   )
 
+  const updateBundleMutation = useMutation(
+    ({ id, data }) => mediaAPI.updateBundle(id, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('media-bundles')
+        setSelectedBundle(null)
+        toast.success('Bundle updated successfully')
+      }
+    }
+  )
+
+  const uploadContentMutation = useMutation(
+    ({ id, formData }) => mediaAPI.uploadContent(id, formData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('media-bundles')
+        setUploadingBundle(null)
+        toast.success('Content uploaded successfully')
+      }
+    }
+  )
+
   const deleteBundleMutation = useMutation(
     (id) => mediaAPI.deleteBundle(id),
     {
@@ -40,6 +252,22 @@ function MediaBundles() {
     if (!newBundleName.trim()) return
     
     createBundleMutation.mutate({ name: newBundleName })
+  }
+
+  const handleEditBundle = (bundle) => {
+    setSelectedBundle(bundle)
+  }
+
+  const handleSaveEdit = (bundleId, data) => {
+    updateBundleMutation.mutate({ id: bundleId, data })
+  }
+
+  const handleUploadContent = (bundle) => {
+    setUploadingBundle(bundle)
+  }
+
+  const handleUpload = async (bundleId, formData) => {
+    return uploadContentMutation.mutateAsync({ id: bundleId, formData })
   }
 
   const handleDeleteBundle = (bundle) => {
@@ -100,14 +328,16 @@ function MediaBundles() {
               </div>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setSelectedBundle(bundle)}
+                  onClick={() => handleEditBundle(bundle)}
                   className="btn btn-ghost btn-sm p-1"
+                  title="Edit bundle"
                 >
                   <Edit className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleDeleteBundle(bundle)}
                   className="btn btn-ghost btn-sm p-1 text-red-600"
+                  title="Delete bundle"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -134,7 +364,10 @@ function MediaBundles() {
             </div>
             
             <div className="mt-4">
-              <button className="btn btn-secondary btn-sm w-full">
+              <button 
+                onClick={() => handleUploadContent(bundle)}
+                className="btn btn-secondary btn-sm w-full"
+              >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Content
               </button>
@@ -196,6 +429,24 @@ function MediaBundles() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Edit Bundle Modal */}
+      {selectedBundle && (
+        <BundleEditModal
+          bundle={selectedBundle}
+          onClose={() => setSelectedBundle(null)}
+          onSave={handleSaveEdit}
+        />
+      )}
+
+      {/* Upload Modal */}
+      {uploadingBundle && (
+        <UploadModal
+          bundle={uploadingBundle}
+          onClose={() => setUploadingBundle(null)}
+          onUpload={handleUpload}
+        />
       )}
     </div>
   )

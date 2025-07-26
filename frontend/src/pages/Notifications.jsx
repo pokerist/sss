@@ -301,12 +301,12 @@ function Notifications() {
                 <input
                   type="text"
                   className="input w-full"
-                  placeholder="e.g. 101"
+                  placeholder="e.g. 101 (leave empty for all devices)"
                   value={newNotification.room_number}
                   onChange={(e) => setNewNotification({ ...newNotification, room_number: e.target.value })}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Leave empty to send to all active devices
+                  Leave empty to send to all active devices. Specify a room number to target that specific room only.
                 </p>
               </div>
               

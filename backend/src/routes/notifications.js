@@ -107,13 +107,16 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Title and body are required' });
     }
 
-    if (!device_id && !room_number) {
-      return res.status(400).json({ error: 'Either device_id or room_number is required' });
-    }
-
     // If room_number is provided but no device_id, find the device
     let targetDeviceId = device_id;
-    if (!device_id && room_number) {
+    let targetDevices = [];
+
+    if (device_id) {
+      // Single device specified
+      targetDevices = [{ device_id, room_number }];
+      targetDeviceId = device_id;
+    } else if (room_number) {
+      // Room number specified, find device for that room
       const deviceResult = await query(
         'SELECT device_id FROM devices WHERE room_number = $1 AND status = $2',
         [room_number, 'active']
@@ -124,6 +127,21 @@ router.post('/', authenticateToken, async (req, res) => {
       }
       
       targetDeviceId = deviceResult.rows[0].device_id;
+      targetDevices = [{ device_id: targetDeviceId, room_number }];
+    } else {
+      // No specific device or room, send to all active devices
+      const allActiveResult = await query(
+        'SELECT device_id, room_number FROM devices WHERE status = $1',
+        ['active']
+      );
+      
+      if (allActiveResult.rows.length === 0) {
+        return res.status(404).json({ error: 'No active devices found' });
+      }
+      
+      targetDevices = allActiveResult.rows;
+      // For single notification, use the first device (this maintains backward compatibility)
+      targetDeviceId = targetDevices[0].device_id;
     }
 
     // Determine scheduled_for time
