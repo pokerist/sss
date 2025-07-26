@@ -3,7 +3,6 @@ const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { syncDevice, updateNotificationStatus } = require('../controllers/deviceController');
 const logger = require('../config/logger');
-const websocketService = require('../services/websocketService');
 
 const router = express.Router();
 
@@ -166,12 +165,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     logger.info(`Device updated: ${updatedDevice.device_id}`, req.body);
 
-    // Notify via WebSocket
-    websocketService.broadcast('device_updated', {
-      device: updatedDevice,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       device: updatedDevice
@@ -200,12 +193,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const deviceId = result.rows[0].device_id;
 
     logger.info(`Device deleted: ${deviceId}`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('device_deleted', {
-      device_id: deviceId,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,
@@ -266,13 +253,6 @@ router.post('/bulk-actions', authenticateToken, async (req, res) => {
     }
 
     logger.info(`Bulk action performed: ${action} on ${device_ids.length} devices`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('bulk_action_performed', {
-      action,
-      affected_count: result.rows.length,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,

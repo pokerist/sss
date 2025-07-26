@@ -2,7 +2,6 @@ const express = require('express');
 const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const logger = require('../config/logger');
-const websocketService = require('../services/websocketService');
 
 const router = express.Router();
 
@@ -164,12 +163,6 @@ router.post('/', authenticateToken, async (req, res) => {
 
     logger.info(`Notification created: ${title} for device ${targetDeviceId}`);
 
-    // Notify via WebSocket
-    websocketService.broadcast('notification_created', {
-      notification: newNotification,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       notification: newNotification
@@ -216,13 +209,6 @@ router.put('/:id/status', authenticateToken, async (req, res) => {
 
     logger.info(`Notification ${id} status updated to ${status}`);
 
-    // Notify via WebSocket
-    websocketService.broadcast('notification_status_updated', {
-      notification_id: id,
-      status,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       notification: updatedNotification
@@ -251,12 +237,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const deletedNotification = result.rows[0];
 
     logger.info(`Notification deleted: ${deletedNotification.title}`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('notification_deleted', {
-      notification_id: id,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,
@@ -346,13 +326,6 @@ router.post('/bulk-send', authenticateToken, async (req, res) => {
     }
 
     logger.info(`Bulk notification sent to ${createdNotifications.length} devices`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('bulk_notification_sent', {
-      count: createdNotifications.length,
-      title,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,

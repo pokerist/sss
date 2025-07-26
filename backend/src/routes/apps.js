@@ -5,7 +5,6 @@ const fs = require('fs');
 const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const logger = require('../config/logger');
-const websocketService = require('../services/websocketService');
 
 const router = express.Router();
 
@@ -128,12 +127,6 @@ router.post('/', authenticateToken, upload.fields([
     const newApp = result.rows[0];
 
     logger.info(`App created: ${name} (${package_name})`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('app_created', {
-      app: newApp,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,
@@ -274,12 +267,6 @@ router.put('/:id', authenticateToken, upload.fields([
 
     logger.info(`App updated: ${updatedApp.name} (${updatedApp.package_name})`);
 
-    // Notify via WebSocket
-    websocketService.broadcast('app_updated', {
-      app: updatedApp,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       app: updatedApp
@@ -340,13 +327,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
     logger.info(`App deleted: ${deletedApp.name} (${deletedApp.package_name})`);
 
-    // Notify via WebSocket
-    websocketService.broadcast('app_deleted', {
-      app_name: deletedApp.name,
-      package_name: deletedApp.package_name,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       message: 'App deleted successfully'
@@ -376,12 +356,6 @@ router.post('/reorder', authenticateToken, async (req, res) => {
     }
 
     logger.info(`App sort order updated for ${app_orders.length} apps`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('apps_reordered', {
-      updated_count: app_orders.length,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,
@@ -437,12 +411,6 @@ router.post('/bulk-delete', authenticateToken, async (req, res) => {
     });
 
     logger.info(`${result.rows.length} apps deleted`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('apps_bulk_deleted', {
-      deleted_count: result.rows.length,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,

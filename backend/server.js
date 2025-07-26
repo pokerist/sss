@@ -24,7 +24,6 @@ const notificationRoutes = require('./src/routes/notifications');
 // Import services
 const pmsService = require('./src/services/pmsService');
 const schedulerService = require('./src/services/schedulerService');
-const websocketService = require('./src/services/websocketService');
 
 const app = express();
 app.set('trust proxy', true);
@@ -137,11 +136,6 @@ async function startServer() {
       logger.error('HTTP server error:', error);
       process.exit(1);
     });
-    
-    // Initialize WebSocket server
-    logger.info('Initializing WebSocket server...');
-    websocketService.init(server);
-    logger.info('WebSocket server initialized');
     
     // Start background services
     logger.info('Initializing PMS service...');

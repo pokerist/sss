@@ -5,7 +5,6 @@ const fs = require('fs');
 const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const logger = require('../config/logger');
-const websocketService = require('../services/websocketService');
 
 const router = express.Router();
 
@@ -133,12 +132,6 @@ router.post('/bundles', authenticateToken, async (req, res) => {
 
     logger.info(`Media bundle created: ${name}`);
 
-    // Notify via WebSocket
-    websocketService.broadcast('bundle_created', {
-      bundle: newBundle,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       bundle: newBundle
@@ -201,12 +194,6 @@ router.put('/bundles/:id', authenticateToken, async (req, res) => {
 
     logger.info(`Media bundle updated: ${updatedBundle.name}`);
 
-    // Notify via WebSocket
-    websocketService.broadcast('bundle_updated', {
-      bundle: updatedBundle,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       bundle: updatedBundle
@@ -266,12 +253,6 @@ router.delete('/bundles/:id', authenticateToken, async (req, res) => {
 
     logger.info(`Media bundle deleted: ${bundleName}`);
 
-    // Notify via WebSocket
-    websocketService.broadcast('bundle_deleted', {
-      bundle_name: bundleName,
-      timestamp: new Date().toISOString()
-    });
-
     res.json({
       success: true,
       message: 'Bundle deleted successfully'
@@ -328,13 +309,6 @@ router.post('/bundles/:id/upload', authenticateToken, upload.array('files', 10),
     }
 
     logger.info(`${files.length} files uploaded to bundle ${id}`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('content_uploaded', {
-      bundle_id: id,
-      content_count: files.length,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,
@@ -440,12 +414,6 @@ router.post('/bundles/bulk-delete', authenticateToken, async (req, res) => {
     });
 
     logger.info(`${result.rows.length} media bundles deleted`);
-
-    // Notify via WebSocket
-    websocketService.broadcast('bundles_bulk_deleted', {
-      deleted_count: result.rows.length,
-      timestamp: new Date().toISOString()
-    });
 
     res.json({
       success: true,

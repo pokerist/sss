@@ -1,7 +1,6 @@
 const { query } = require('../config/database');
 const { get, set } = require('../config/redis');
 const logger = require('../config/logger');
-const websocketService = require('../services/websocketService');
 
 // Device sync endpoint - main endpoint for TV boxes
 const syncDevice = async (req, res) => {
@@ -27,13 +26,7 @@ const syncDevice = async (req, res) => {
       
       logger.info(`New device registered: ${device_id}`);
       
-      // Notify admin via WebSocket
-      websocketService.broadcast('device_registered', {
-        device_id,
-        timestamp: new Date().toISOString()
-      });
-      
-      return res.json({ 
+      return res.json({
         message: 'device registered, admin must activate and assign room number',
         status: 'inactive',
         device_id
@@ -182,14 +175,6 @@ const updateNotificationStatus = async (req, res) => {
     }
 
     logger.info(`Notification ${notification_id} marked as ${status} by device ${device_id}`);
-
-    // Notify admin via WebSocket
-    websocketService.broadcast('notification_status_updated', {
-      notification_id,
-      device_id,
-      status,
-      timestamp: new Date().toISOString()
-    });
 
     return res.json({
       success: true,
