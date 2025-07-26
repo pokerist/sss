@@ -244,12 +244,16 @@ export const WebSocketProvider = ({ children }) => {
   // Connect when user is available
   useEffect(() => {
     if (user) {
-      connect()
+      // Add a small delay to ensure authentication is properly set
+      const timer = setTimeout(() => {
+        connect()
+      }, 1000)
+      
+      return () => {
+        clearTimeout(timer)
+        disconnect()
+      }
     } else {
-      disconnect()
-    }
-
-    return () => {
       disconnect()
     }
   }, [user])

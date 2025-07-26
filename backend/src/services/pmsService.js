@@ -22,7 +22,8 @@ class PMSService {
         this.isInitialized = true;
         logger.info('PMS Service initialized successfully');
       } else {
-        logger.warn('PMS Service not configured');
+        this.isInitialized = false;
+        logger.info('PMS Service not configured - skipping initialization');
       }
     } catch (error) {
       logger.error('Failed to initialize PMS Service:', error);
