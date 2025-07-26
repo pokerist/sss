@@ -124,14 +124,99 @@ fi
 # Configure PostgreSQL
 echo -e "${CYAN}🗄️  Configuring PostgreSQL...${NC}"
 
+# Wait for PostgreSQL to be ready
+echo -e "${YELLOW}Waiting for PostgreSQL to be ready...${NC}"
+for i in {1..30}; do
+    if sudo -u postgres psql -c '\l' &>/dev/null; then
+        break
+    fi
+    echo "Attempt $i/30: PostgreSQL not ready yet, waiting..."
+    sleep 2
+done
+
+# Configure PostgreSQL authentication
+echo -e "${YELLOW}Configuring PostgreSQL authentication...${NC}"
+PG_VERSION=$(sudo -u postgres psql -t -c "SELECT version();" | grep -oP '\d+\.\d+' | head -1)
+PG_CONFIG_DIR="/etc/postgresql/$PG_VERSION/main"
+
+# Backup original pg_hba.conf
+sudo cp "$PG_CONFIG_DIR/pg_hba.conf" "$PG_CONFIG_DIR/pg_hba.conf.backup" 2>/dev/null || true
+
+# Configure pg_hba.conf for password authentication
+sudo tee "$PG_CONFIG_DIR/pg_hba.conf" > /dev/null << EOF
+# PostgreSQL Client Authentication Configuration File
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# "local" is for Unix domain socket connections only
+local   all             postgres                                peer
+local   all             all                                     md5
+
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            md5
+host    all             all             0.0.0.0/0               md5
+
+# IPv6 local connections:
+host    all             all             ::1/128                 md5
+EOF
+
+# Configure postgresql.conf for network connections
+sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" "$PG_CONFIG_DIR/postgresql.conf" 2>/dev/null || true
+
+# Restart PostgreSQL to apply configuration
+echo -e "${YELLOW}Restarting PostgreSQL with new configuration...${NC}"
+sudo systemctl restart postgresql
+sleep 5
+
+# Wait for PostgreSQL to be ready after restart
+echo -e "${YELLOW}Waiting for PostgreSQL to restart...${NC}"
+for i in {1..30}; do
+    if sudo -u postgres psql -c '\l' &>/dev/null; then
+        echo -e "${GREEN}PostgreSQL is ready!${NC}"
+        break
+    fi
+    echo "Attempt $i/30: PostgreSQL not ready yet, waiting..."
+    sleep 2
+done
+
 # Drop existing database if exists and create new one
+echo -e "${YELLOW}Cleaning up existing database and user...${NC}"
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS hotel_tv_db;" 2>/dev/null || true
 sudo -u postgres psql -c "DROP USER IF EXISTS hotel_tv_user;" 2>/dev/null || true
 
+# Escape the password properly for SQL
+ESCAPED_PASSWORD=$(printf '%s\n' "$DB_PASSWORD" | sed 's/[[\.*^$()+?{|]/\\&/g')
+
 # Create new database and user
-sudo -u postgres psql -c "CREATE USER hotel_tv_user WITH PASSWORD '$DB_PASSWORD';"
-sudo -u postgres psql -c "CREATE DATABASE hotel_tv_db OWNER hotel_tv_user;"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE hotel_tv_db TO hotel_tv_user;"
+echo -e "${YELLOW}Creating database user and database...${NC}"
+sudo -u postgres psql << EOSQL
+CREATE USER hotel_tv_user WITH PASSWORD '$ESCAPED_PASSWORD';
+CREATE DATABASE hotel_tv_db OWNER hotel_tv_user;
+GRANT ALL PRIVILEGES ON DATABASE hotel_tv_db TO hotel_tv_user;
+ALTER USER hotel_tv_user CREATEDB;
+\q
+EOSQL
+
+# Test the connection
+echo -e "${YELLOW}Testing database connection...${NC}"
+if PGPASSWORD="$DB_PASSWORD" psql -h localhost -U hotel_tv_user -d hotel_tv_db -c '\l' &>/dev/null; then
+    echo -e "${GREEN}✅ Database connection test successful!${NC}"
+else
+    echo -e "${RED}❌ Database connection test failed!${NC}"
+    echo -e "${YELLOW}Trying alternative connection method...${NC}"
+    
+    # Alternative: Set password using ALTER USER
+    sudo -u postgres psql -c "ALTER USER hotel_tv_user WITH PASSWORD '$ESCAPED_PASSWORD';"
+    
+    # Test again
+    if PGPASSWORD="$DB_PASSWORD" psql -h localhost -U hotel_tv_user -d hotel_tv_db -c '\l' &>/dev/null; then
+        echo -e "${GREEN}✅ Database connection successful after retry!${NC}"
+    else
+        echo -e "${RED}❌ Database connection still failing. Check the logs for details.${NC}"
+        echo -e "${YELLOW}Database Password: $DB_PASSWORD${NC}"
+        exit 1
+    fi
+fi
 
 echo -e "${GREEN}✅ Database 'hotel_tv_db' created with user 'hotel_tv_user'${NC}"
 
