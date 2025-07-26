@@ -34,7 +34,7 @@ api.interceptors.response.use(
     const message = error.response?.data?.error || error.message || 'An error occurred'
     
     // Don't show toast for specific endpoints
-    const silentEndpoints = ['/auth/login', '/dashboard/stats']
+    const silentEndpoints = ['/auth/login']
     const shouldShowToast = !silentEndpoints.some(endpoint => 
       error.config?.url?.includes(endpoint)
     )

@@ -72,13 +72,16 @@ function PMSStatusBadge({ status }) {
 }
 
 function Dashboard() {
-  const { data: stats, isLoading, error } = useQuery(
+  const { data: response, isLoading, error } = useQuery(
     'dashboard-stats',
     dashboardAPI.getStats,
     {
       refetchInterval: 30000, // Refresh every 30 seconds
     }
   )
+
+  // Extract the actual data from axios response
+  const stats = response?.data
 
   if (isLoading) {
     return (
