@@ -136,8 +136,19 @@ done
 
 # Configure PostgreSQL authentication
 echo -e "${YELLOW}Configuring PostgreSQL authentication...${NC}"
-PG_VERSION=$(sudo -u postgres psql -t -c "SELECT version();" | grep -oP '\d+\.\d+' | head -1)
+PG_VERSION=$(sudo -u postgres psql -t -c "SELECT version();" | grep -oP '\d+' | head -1)
 PG_CONFIG_DIR="/etc/postgresql/$PG_VERSION/main"
+
+# Check if PostgreSQL config directory exists
+if [ ! -d "$PG_CONFIG_DIR" ]; then
+    echo -e "${YELLOW}Standard config directory not found, searching for PostgreSQL config...${NC}"
+    PG_CONFIG_DIR=$(find /etc/postgresql -name "main" -type d | head -1)
+    if [ -z "$PG_CONFIG_DIR" ]; then
+        echo -e "${RED}❌ Could not find PostgreSQL configuration directory${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}Found PostgreSQL config at: $PG_CONFIG_DIR${NC}"
+fi
 
 # Backup original pg_hba.conf
 sudo cp "$PG_CONFIG_DIR/pg_hba.conf" "$PG_CONFIG_DIR/pg_hba.conf.backup" 2>/dev/null || true
