@@ -71,7 +71,7 @@ function Settings() {
 
   const { data: settings, isLoading } = useQuery('system-settings', settingsAPI.getSystemSettings, {
     onSuccess: (data) => {
-      const systemSettings = data?.data || {}
+      const systemSettings = data?.settings || {}
       setFormData({
         hotel_name: systemSettings.hotel_name || '',
         main_message: systemSettings.main_message || '',
@@ -79,7 +79,8 @@ function Settings() {
         pms_base_url: systemSettings.pms_base_url || '',
         pms_api_key: systemSettings.pms_api_key || '',
         pms_username: systemSettings.pms_username || '',
-        pms_password: ''
+        pms_password: '',
+        hotel_logo_url: systemSettings.hotel_logo_url || ''
       })
     }
   })
@@ -184,7 +185,7 @@ function Settings() {
     )
   }
 
-  const systemSettings = settings?.data || {}
+  const systemSettings = settings?.settings || {}
 
   const tabs = [
     { id: 'hotel', name: 'Hotel Information', icon: Image },
@@ -273,29 +274,57 @@ function Settings() {
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Hotel Logo
-              </label>
-              <div className="flex items-center space-x-4">
-                {systemSettings.hotel_logo_url && (
-                  <img
-                    src={systemSettings.hotel_logo_url}
-                    alt="Hotel Logo"
-                    className="h-16 w-16 object-contain border rounded"
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hotel Logo
+                </label>
+                <div className="flex items-center space-x-4">
+                  {formData.hotel_logo_url && (
+                    <div className="relative">
+                      <img
+                        src={formData.hotel_logo_url}
+                        alt="Hotel Logo"
+                        className="h-16 w-16 object-contain border rounded"
+                      />
+                      <p className="text-xs text-gray-500 mt-1 break-all">
+                        Current: {formData.hotel_logo_url}
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    name="hotel_logo"
+                    accept="image/*"
+                    className="input flex-1"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        // Preview the new image
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData(prev => ({
+                            ...prev,
+                            hotel_logo_preview: reader.result
+                          }));
+                        };
+                        reader.readAsDataURL(e.target.files[0]);
+                      }
+                    }}
                   />
+                </div>
+                {formData.hotel_logo_preview && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium text-gray-700">New Logo Preview:</p>
+                    <img
+                      src={formData.hotel_logo_preview}
+                      alt="New Logo Preview"
+                      className="h-16 w-16 object-contain border rounded mt-1"
+                    />
+                  </div>
                 )}
-                <input
-                  type="file"
-                  name="hotel_logo"
-                  accept="image/*"
-                  className="input flex-1"
-                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Upload a logo image for your hotel
+                </p>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Upload a logo image for your hotel
-              </p>
-            </div>
 
             <div className="flex justify-end">
               <button

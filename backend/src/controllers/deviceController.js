@@ -111,24 +111,27 @@ const buildDeviceResponse = async (device) => {
     );
     const allowedApps = appsResult.rows;
 
-    // Get pending notifications
+    // Get pending notifications (both new and sent)
     let notifications = [];
     const notificationsResult = await query(
-      `SELECT id, title, body, notification_type, guest_name, created_at 
+      `SELECT id, title, body, notification_type, guest_name, created_at, status
        FROM notifications 
        WHERE (device_id = $1 OR (device_id IS NULL AND room_number = $2) OR (device_id IS NULL AND room_number IS NULL))
-       AND status = $3 
+       AND status IN ($3, $4)
        ORDER BY created_at DESC`,
-      [device.device_id, device.room_number, 'new']
+      [device.device_id, device.room_number, 'new', 'sent']
     );
     notifications = notificationsResult.rows;
 
-    // Mark notifications as sent
-    if (notifications.length > 0) {
-      const notificationIds = notifications.map(n => n.id);
+    // Mark new notifications as sent
+    const newNotificationIds = notifications
+      .filter(n => n.status === 'new')
+      .map(n => n.id);
+
+    if (newNotificationIds.length > 0) {
       await query(
         'UPDATE notifications SET status = $1, sent_at = NOW() WHERE id = ANY($2)',
-        ['sent', notificationIds]
+        ['sent', newNotificationIds]
       );
     }
 
