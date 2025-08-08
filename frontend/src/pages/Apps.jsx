@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { appsAPI } from '../services/api'
-import { Smartphone, Plus, Upload, Trash2, Edit, Image } from 'lucide-react'
+import { Smartphone, Plus, Upload, Trash2, Edit } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function Apps() {
@@ -23,18 +23,7 @@ function Apps() {
   
   const queryClient = useQueryClient()
 
-  const { data: apps, isLoading } = useQuery('apps', appsAPI.getApps, {
-    select: (data) => {
-      // Sort apps: allowed first, then by sort_order
-      const sortedApps = [...(data?.apps || [])].sort((a, b) => {
-        if (a.is_allowed !== b.is_allowed) {
-          return b.is_allowed ? 1 : -1;
-        }
-        return a.sort_order - b.sort_order;
-      });
-      return { apps: sortedApps };
-    }
-  })
+  const { data: apps, isLoading } = useQuery('apps', appsAPI.getApps)
 
   const createAppMutation = useMutation(
     (formData) => appsAPI.createApp(formData),
@@ -82,49 +71,6 @@ function Apps() {
       }
     }
   )
-
-  const reorderAppMutation = useMutation(
-    ({ id, direction }) => {
-      const currentApps = apps?.apps || [];
-      const currentIndex = currentApps.findIndex(app => app.id === id);
-      if (currentIndex === -1) return Promise.reject('App not found');
-
-      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      if (newIndex < 0 || newIndex >= currentApps.length) return Promise.reject('Invalid move');
-
-      const updatedApps = [...currentApps];
-      const [movedApp] = updatedApps.splice(currentIndex, 1);
-      updatedApps.splice(newIndex, 0, movedApp);
-
-      // Update sort_order for all affected apps
-      const app_orders = updatedApps.map((app, index) => ({
-        id: app.id,
-        sort_order: index
-      }));
-
-      return appsAPI.reorderApps(app_orders);
-    },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('apps');
-        toast.success('App order updated successfully');
-      }
-    }
-  );
-
-  const removeLogoMutation = useMutation(
-    (id) => {
-      const formData = new FormData();
-      formData.append('app_logo_url', '');
-      return appsAPI.updateApp({ id, formData });
-    },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('apps');
-        toast.success('App logo removed successfully');
-      }
-    }
-  );
 
   const toggleAppMutation = useMutation(
     ({ id, is_allowed }) => {
@@ -241,7 +187,7 @@ function Apps() {
     )
   }
 
-  const appsList = apps?.apps || []
+  const appsList = apps?.data?.apps || []
 
   return (
     <div className="space-y-6">
@@ -283,7 +229,7 @@ function Apps() {
             app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             app.package_name.toLowerCase().includes(searchQuery.toLowerCase())
           )
-          .map((app, index) => (
+          .map((app) => (
           <div key={app.id} className="card p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -306,64 +252,37 @@ function Apps() {
                 </div>
               </div>
               
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        className="form-checkbox h-4 w-4 text-blue-600"
-                        checked={app.is_allowed}
-                        onChange={() => handleToggleApp(app)}
-                      />
-                      <span className="ml-2 text-sm text-gray-600">Allowed</span>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => reorderAppMutation.mutate({ id: app.id, direction: 'up' })}
-                      className="btn btn-ghost btn-sm p-1 text-gray-600"
-                      disabled={index === 0}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={() => reorderAppMutation.mutate({ id: app.id, direction: 'down' })}
-                      className="btn btn-ghost btn-sm p-1 text-gray-600"
-                      disabled={index === appsList.length - 1}
-                    >
-                      ↓
-                    </button>
-                  </div>
-                  
-                  <button
-                    onClick={() => {
-                      setEditingApp(app)
-                      setShowEditModal(true)
-                    }}
-                    className="btn btn-ghost btn-sm p-1 text-blue-600"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-
-                  {app.app_logo_url && (
-                    <button
-                      onClick={() => removeLogoMutation.mutate(app.id)}
-                      className="btn btn-ghost btn-sm p-1 text-orange-600"
-                      title="Remove logo"
-                    >
-                      <Image className="h-4 w-4" />
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={() => handleDeleteApp(app)}
-                    className="btn btn-ghost btn-sm p-1 text-red-600"
-                    disabled={deleteAppMutation.isLoading}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox h-4 w-4 text-blue-600"
+                      checked={app.is_allowed}
+                      onChange={() => handleToggleApp(app)}
+                    />
+                    <span className="ml-2 text-sm text-gray-600">Allowed</span>
+                  </label>
                 </div>
+                
+                <button
+                  onClick={() => {
+                    setEditingApp(app)
+                    setShowEditModal(true)
+                  }}
+                  className="btn btn-ghost btn-sm p-1 text-blue-600"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                
+                <button
+                  onClick={() => handleDeleteApp(app)}
+                  className="btn btn-ghost btn-sm p-1 text-red-600"
+                  disabled={deleteAppMutation.isLoading}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
