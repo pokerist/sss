@@ -49,7 +49,7 @@ function Apps() {
   )
 
   const updateAppMutation = useMutation(
-    ({ id, formData }) => appsAPI.updateApp(id, formData),
+    ({ id, formData }) => appsAPI.updateApp({ id, formData }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('apps')
@@ -75,8 +75,8 @@ function Apps() {
   const toggleAppMutation = useMutation(
     ({ id, is_allowed }) => {
       const formData = new FormData()
-      formData.append('is_allowed', is_allowed)
-      return appsAPI.updateApp(id, formData)
+      formData.append('is_allowed', String(is_allowed))
+      return appsAPI.updateApp({ id, formData })
     },
     {
       onSuccess: () => {

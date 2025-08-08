@@ -200,7 +200,7 @@ router.put('/:id', authenticateToken, upload.fields([
     if (is_allowed !== undefined) {
       paramCount++;
       updates.push(`is_allowed = $${paramCount}`);
-      params.push(is_allowed);
+      params.push(is_allowed === 'true' || is_allowed === true);
     }
 
     if (sort_order !== undefined) {
