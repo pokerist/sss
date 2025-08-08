@@ -48,7 +48,9 @@ router.get('/system', authenticateToken, async (req, res) => {
     const result = await query(`
       SELECT 
         hotel_name, 
-        hotel_logo_url, 
+        hotel_logo_url,
+        main_message,
+        footer_credit,
         admin_username,
         pms_base_url, 
         pms_api_key, 
@@ -82,6 +84,8 @@ router.put('/system', authenticateToken, upload.single('hotel_logo'), async (req
   try {
     const {
       hotel_name,
+      main_message,
+      footer_credit,
       admin_username,
       admin_password,
       pms_base_url,
@@ -107,6 +111,18 @@ router.put('/system', authenticateToken, upload.single('hotel_logo'), async (req
       paramCount++;
       updates.push(`hotel_name = $${paramCount}`);
       params.push(hotel_name);
+    }
+
+    if (main_message !== undefined) {
+      paramCount++;
+      updates.push(`main_message = $${paramCount}`);
+      params.push(main_message);
+    }
+
+    if (footer_credit !== undefined) {
+      paramCount++;
+      updates.push(`footer_credit = $${paramCount}`);
+      params.push(footer_credit);
     }
 
     if (admin_username !== undefined) {

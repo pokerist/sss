@@ -5,6 +5,8 @@ CREATE TABLE system_settings (
   id SERIAL PRIMARY KEY,
   hotel_name VARCHAR(255),
   hotel_logo_url TEXT,
+  main_message TEXT,
+  footer_credit TEXT,
   admin_username VARCHAR(100),
   admin_password_hash VARCHAR(255),
   pms_base_url VARCHAR(255),

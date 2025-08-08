@@ -88,12 +88,13 @@ export const appsAPI = {
   createApp: (formData) => api.post('/apps', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  updateApp: (id, formData) => api.put(`/apps/${id}`, formData, {
+  updateApp: ({ id, formData }) => api.put(`/apps/${id}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   deleteApp: (id) => api.delete(`/apps/${id}`),
   reorderApps: (data) => api.post('/apps/reorder', data),
   bulkDeleteApps: (data) => api.post('/apps/bulk-delete', data),
+  bulkImportApps: (apps) => api.post('/apps/bulk-import', { apps }),
 }
 
 // Notifications API

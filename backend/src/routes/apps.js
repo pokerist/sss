@@ -368,6 +368,64 @@ router.post('/reorder', authenticateToken, async (req, res) => {
   }
 });
 
+// Bulk import apps
+router.post('/bulk-import', authenticateToken, async (req, res) => {
+  try {
+    const { apps } = req.body;
+
+    if (!apps || !Array.isArray(apps)) {
+      return res.status(400).json({ error: 'apps array is required' });
+    }
+
+    // Get max sort order
+    const maxSortResult = await query('SELECT COALESCE(MAX(sort_order), 0) as max_sort FROM apps');
+    let nextSortOrder = parseInt(maxSortResult.rows[0].max_sort) + 1;
+
+    // Insert apps in batch
+    const insertedApps = [];
+    for (const app of apps) {
+      const { app_name, package_id } = app;
+
+      if (!app_name || !package_id) {
+        return res.status(400).json({ 
+          error: 'Each app must have app_name and package_id',
+          invalid_app: app 
+        });
+      }
+
+      // Check if package name already exists
+      const existingApp = await query(
+        'SELECT id FROM apps WHERE package_name = $1',
+        [package_id]
+      );
+
+      if (existingApp.rows.length > 0) {
+        continue; // Skip existing apps
+      }
+
+      // Insert new app
+      const result = await query(
+        'INSERT INTO apps (name, package_name, is_allowed, sort_order) VALUES ($1, $2, $3, $4) RETURNING *',
+        [app_name, package_id, false, nextSortOrder++]
+      );
+
+      insertedApps.push(result.rows[0]);
+    }
+
+    logger.info(`${insertedApps.length} apps imported via bulk import`);
+
+    res.json({
+      success: true,
+      message: `${insertedApps.length} apps imported successfully`,
+      imported_apps: insertedApps
+    });
+
+  } catch (error) {
+    logger.error('Bulk import apps error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Bulk delete apps
 router.post('/bulk-delete', authenticateToken, async (req, res) => {
   try {

@@ -59,6 +59,8 @@ function Settings() {
   const [pmsTestResult, setPmsTestResult] = useState(null)
   const [formData, setFormData] = useState({
     hotel_name: '',
+    main_message: '',
+    footer_credit: '',
     pms_base_url: '',
     pms_api_key: '',
     pms_username: '',
@@ -72,6 +74,8 @@ function Settings() {
       const systemSettings = data?.data || {}
       setFormData({
         hotel_name: systemSettings.hotel_name || '',
+        main_message: systemSettings.main_message || '',
+        footer_credit: systemSettings.footer_credit || '',
         pms_base_url: systemSettings.pms_base_url || '',
         pms_api_key: systemSettings.pms_api_key || '',
         pms_username: systemSettings.pms_username || '',
@@ -234,6 +238,39 @@ function Settings() {
                 onChange={(e) => setFormData({ ...formData, hotel_name: e.target.value })}
                 placeholder="Enter hotel name"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Main Message
+              </label>
+              <textarea
+                name="main_message"
+                className="input w-full h-24"
+                value={formData.main_message}
+                onChange={(e) => setFormData({ ...formData, main_message: e.target.value })}
+                placeholder="Enter main message to display on TV devices"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This message will be displayed prominently on TV devices
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Footer Credit
+              </label>
+              <input
+                type="text"
+                name="footer_credit"
+                className="input w-full"
+                value={formData.footer_credit}
+                onChange={(e) => setFormData({ ...formData, footer_credit: e.target.value })}
+                placeholder="Enter footer credit text"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This text will appear in the footer of TV devices
+              </p>
             </div>
 
             <div>

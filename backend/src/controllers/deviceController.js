@@ -70,7 +70,7 @@ const syncDevice = async (req, res) => {
 const buildDeviceResponse = async (device) => {
   try {
     // Get system settings
-    const settingsResult = await query('SELECT hotel_name, hotel_logo_url FROM system_settings LIMIT 1');
+    const settingsResult = await query('SELECT hotel_name, hotel_logo_url, main_message, footer_credit FROM system_settings LIMIT 1');
     const settings = settingsResult.rows[0] || {};
 
     // Get guest data for the room
@@ -114,8 +114,12 @@ const buildDeviceResponse = async (device) => {
     // Get pending notifications
     let notifications = [];
     const notificationsResult = await query(
-      'SELECT id, title, body, notification_type, guest_name, created_at FROM notifications WHERE device_id = $1 AND status = $2 ORDER BY created_at DESC',
-      [device.device_id, 'new']
+      `SELECT id, title, body, notification_type, guest_name, created_at 
+       FROM notifications 
+       WHERE (device_id = $1 OR (device_id IS NULL AND room_number = $2) OR (device_id IS NULL AND room_number IS NULL))
+       AND status = $3 
+       ORDER BY created_at DESC`,
+      [device.device_id, device.room_number, 'new']
     );
     notifications = notificationsResult.rows;
 
@@ -134,7 +138,9 @@ const buildDeviceResponse = async (device) => {
       status: device.status,
       hotel_info: {
         name: settings.hotel_name || 'Hotel TV Management',
-        logo_url: settings.hotel_logo_url
+        logo_url: settings.hotel_logo_url,
+        main_message: settings.main_message,
+        footer_credit: settings.footer_credit
       },
       guest_data: guestData,
       bills: bills,

@@ -1,11 +1,16 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { appsAPI } from '../services/api'
-import { Smartphone, Plus, Upload, Trash2 } from 'lucide-react'
+import { Smartphone, Plus, Upload, Trash2, Edit } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function Apps() {
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editingApp, setEditingApp] = useState(null)
+  const [bulkImportText, setBulkImportText] = useState('')
   const [newApp, setNewApp] = useState({
     name: '',
     package_name: '',
@@ -39,6 +44,30 @@ function Apps() {
       onSuccess: () => {
         queryClient.invalidateQueries('apps')
         toast.success('App deleted successfully')
+      }
+    }
+  )
+
+  const updateAppMutation = useMutation(
+    ({ id, formData }) => appsAPI.updateApp(id, formData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('apps')
+        setShowEditModal(false)
+        setEditingApp(null)
+        toast.success('App updated successfully')
+      }
+    }
+  )
+
+  const bulkImportMutation = useMutation(
+    (apps) => appsAPI.bulkImportApps(apps),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('apps')
+        setShowBulkImportModal(false)
+        setBulkImportText('')
+        toast.success('Apps imported successfully')
       }
     }
   )
@@ -89,6 +118,45 @@ function Apps() {
     })
   }
 
+  const handleEditApp = (e) => {
+    e.preventDefault()
+    
+    const formData = new FormData()
+    formData.append('name', editingApp.name)
+    formData.append('package_name', editingApp.package_name)
+    formData.append('is_allowed', editingApp.is_allowed)
+    
+    if (selectedFiles.apk) {
+      formData.append('apk', selectedFiles.apk)
+    }
+    
+    if (selectedFiles.logo) {
+      formData.append('logo', selectedFiles.logo)
+    }
+    
+    updateAppMutation.mutate({ id: editingApp.id, formData })
+  }
+
+  const handleBulkImport = () => {
+    try {
+      const apps = JSON.parse(bulkImportText)
+      if (!Array.isArray(apps)) {
+        throw new Error('Data must be an array')
+      }
+      
+      // Validate each app object
+      apps.forEach(app => {
+        if (!app.app_name || !app.package_id) {
+          throw new Error('Each app must have app_name and package_id')
+        }
+      })
+
+      bulkImportMutation.mutate(apps)
+    } catch (error) {
+      toast.error(`Invalid JSON data: ${error.message}`)
+    }
+  }
+
   const handleFileChange = (type, file) => {
     setSelectedFiles({
       ...selectedFiles,
@@ -125,18 +193,43 @@ function Apps() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Apps Management</h1>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn btn-primary btn-md"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add App
-        </button>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setShowBulkImportModal(true)}
+            className="btn btn-secondary btn-md"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn btn-primary btn-md"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add App
+          </button>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="card p-4">
+        <input
+          type="text"
+          className="input w-full"
+          placeholder="Search apps by name or package name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
       {/* Apps List */}
       <div className="space-y-4">
-        {appsList.map((app) => (
+        {appsList
+          .filter(app => 
+            app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            app.package_name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map((app) => (
           <div key={app.id} className="card p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -173,6 +266,16 @@ function Apps() {
                 </div>
                 
                 <button
+                  onClick={() => {
+                    setEditingApp(app)
+                    setShowEditModal(true)
+                  }}
+                  className="btn btn-ghost btn-sm p-1 text-blue-600"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                
+                <button
                   onClick={() => handleDeleteApp(app)}
                   className="btn btn-ghost btn-sm p-1 text-red-600"
                   disabled={deleteAppMutation.isLoading}
@@ -197,6 +300,160 @@ function Apps() {
             <Plus className="h-4 w-4 mr-2" />
             Add First App
           </button>
+        </div>
+      )}
+
+      {/* Bulk Import Modal */}
+      {showBulkImportModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Bulk Import Apps</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  JSON Data
+                </label>
+                <textarea
+                  className="input w-full h-64 font-mono text-sm"
+                  value={bulkImportText}
+                  onChange={(e) => setBulkImportText(e.target.value)}
+                  placeholder={`[
+  {
+    "app_name": "Netflix",
+    "package_id": "com.netflix.mediaclient"
+  },
+  {
+    "app_name": "YouTube",
+    "package_id": "com.google.android.youtube.tv"
+  }
+]`}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Paste JSON array of apps. Each app should have app_name and package_id.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkImportModal(false)}
+                  className="btn btn-secondary btn-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkImport}
+                  disabled={bulkImportMutation.isLoading}
+                  className="btn btn-primary btn-md"
+                >
+                  {bulkImportMutation.isLoading ? 'Importing...' : 'Import Apps'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit App Modal */}
+      {showEditModal && editingApp && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Edit App</h3>
+            <form onSubmit={handleEditApp} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  App Name *
+                </label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  value={editingApp.name}
+                  onChange={(e) => setEditingApp({ ...editingApp, name: e.target.value })}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Package Name *
+                </label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  value={editingApp.package_name}
+                  onChange={(e) => setEditingApp({ ...editingApp, package_name: e.target.value })}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  APK File (optional)
+                </label>
+                <input
+                  type="file"
+                  accept=".apk"
+                  className="input w-full"
+                  onChange={(e) => handleFileChange('apk', e.target.files[0])}
+                />
+                {editingApp.apk_url && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Current APK: {editingApp.apk_url}
+                  </p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  App Logo (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="input w-full"
+                  onChange={(e) => handleFileChange('logo', e.target.files[0])}
+                />
+                {editingApp.app_logo_url && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Current Logo: {editingApp.app_logo_url}
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="edit_is_allowed"
+                  className="form-checkbox h-4 w-4 text-blue-600"
+                  checked={editingApp.is_allowed}
+                  onChange={(e) => setEditingApp({ ...editingApp, is_allowed: e.target.checked })}
+                />
+                <label htmlFor="edit_is_allowed" className="ml-2 text-sm text-gray-600">
+                  Allow app on devices
+                </label>
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingApp(null)
+                  }}
+                  className="btn btn-secondary btn-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateAppMutation.isLoading}
+                  className="btn btn-primary btn-md"
+                >
+                  {updateAppMutation.isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
