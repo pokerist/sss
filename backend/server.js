@@ -20,6 +20,7 @@ const mediaRoutes = require('./src/routes/media');
 const appRoutes = require('./src/routes/apps');
 const settingsRoutes = require('./src/routes/settings');
 const notificationRoutes = require('./src/routes/notifications');
+const newsRoutes = require('./src/routes/news');
 
 // Import services
 const pmsService = require('./src/services/pmsService');
@@ -68,6 +69,7 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/apps', appRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/news', newsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -50,6 +50,12 @@ const syncDevice = async (req, res) => {
       });
     }
 
+    // Check Redis cache for evacuation status
+    const cachedEvacStatus = await get(`device_evacuation:${device_id}`);
+    if (cachedEvacStatus !== null) {
+      device.is_room_evacuated = cachedEvacStatus === 'true';
+    }
+
     // Device is active, return full configuration
     const response = await buildDeviceResponse(device);
     
@@ -107,9 +113,15 @@ const buildDeviceResponse = async (device) => {
 
     // Get allowed apps
     const appsResult = await query(
-      'SELECT name, package_name, apk_url, app_logo_url FROM apps WHERE is_allowed = true ORDER BY sort_order ASC'
+      'SELECT name, package_name, apk_url, app_logo_url, order_index FROM apps WHERE is_allowed = true ORDER BY order_index ASC'
     );
     const allowedApps = appsResult.rows;
+
+    // Get latest news
+    const newsResult = await query(
+      'SELECT title, paragraph, image_url, link FROM latest_news WHERE is_active = true ORDER BY order_index ASC'
+    );
+    const latestNews = newsResult.rows;
 
     // Get pending notifications
     let notifications = [];
@@ -136,6 +148,7 @@ const buildDeviceResponse = async (device) => {
       device_id: device.device_id,
       room_number: device.room_number,
       status: device.status,
+      room_evacuated: device.is_room_evacuated || false,
       hotel_info: {
         name: settings.hotel_name || 'Hotel TV Management',
         logo_url: settings.hotel_logo_url,
@@ -146,6 +159,7 @@ const buildDeviceResponse = async (device) => {
       bills: bills,
       media_content: mediaContent,
       allowed_apps: allowedApps,
+      latest_news: latestNews,
       notifications: notifications,
       sync_timestamp: new Date().toISOString()
     };
@@ -193,7 +207,43 @@ const updateNotificationStatus = async (req, res) => {
   }
 };
 
+// Clear room evacuation status
+const clearEvacuationStatus = async (req, res) => {
+  try {
+    const { device_id, status } = req.body;
+
+    if (!device_id || status !== 'cleared') {
+      return res.status(400).json({ error: 'device_id and status="cleared" are required' });
+    }
+
+    // Update database
+    const result = await query(
+      'UPDATE devices SET is_room_evacuated = false, updated_at = NOW() WHERE device_id = $1 RETURNING *',
+      [device_id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    // Update Redis cache
+    await set(`device_evacuation:${device_id}`, 'false', 300);
+
+    logger.info(`Room evacuation status cleared for device: ${device_id}`);
+
+    return res.json({
+      success: true,
+      message: 'Evacuation status reset'
+    });
+
+  } catch (error) {
+    logger.error('Clear evacuation status error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   syncDevice,
-  updateNotificationStatus
+  updateNotificationStatus,
+  clearEvacuationStatus
 };

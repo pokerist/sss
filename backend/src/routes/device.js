@@ -1,7 +1,8 @@
 const express = require('express');
 const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { syncDevice, updateNotificationStatus } = require('../controllers/deviceController');
+const { syncDevice, updateNotificationStatus, clearEvacuationStatus } = require('../controllers/deviceController');
+const { set } = require('../config/redis');
 const logger = require('../config/logger');
 
 const router = express.Router();
@@ -11,6 +12,9 @@ router.post('/sync', syncDevice);
 
 // Update notification status (public - for TV boxes)
 router.post('/notification-status', updateNotificationStatus);
+
+// Clear evacuation status (public - for TV boxes)
+router.post('/clear-status', clearEvacuationStatus);
 
 // Admin endpoints (protected)
 
@@ -65,7 +69,8 @@ router.get('/', authenticateToken, async (req, res) => {
     const devicesQuery = `
       SELECT 
         id, device_id, room_number, status, last_sync, is_online, 
-        last_notification, assigned_bundle_id, created_at, updated_at
+        last_notification, assigned_bundle_id, is_room_evacuated,
+        created_at, updated_at
       FROM devices 
       ${whereClause}
       ORDER BY created_at DESC 
@@ -112,7 +117,7 @@ router.get('/', authenticateToken, async (req, res) => {
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { room_number, status, assigned_bundle_id } = req.body;
+    const { room_number, status, assigned_bundle_id, is_room_evacuated } = req.body;
 
     // Validate status
     if (status && !['active', 'inactive'].includes(status)) {
@@ -142,6 +147,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
       params.push(assigned_bundle_id);
     }
 
+    if (is_room_evacuated !== undefined) {
+      paramCount++;
+      updates.push(`is_room_evacuated = $${paramCount}`);
+      params.push(is_room_evacuated);
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
@@ -162,6 +173,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
     }
 
     const updatedDevice = result.rows[0];
+
+    // Update Redis cache if evacuation status changed
+    if (is_room_evacuated !== undefined) {
+      await set(
+        `device_evacuation:${updatedDevice.device_id}`,
+        is_room_evacuated.toString(),
+        300
+      );
+    }
 
     logger.info(`Device updated: ${updatedDevice.device_id}`, req.body);
 
@@ -246,6 +266,22 @@ router.post('/bulk-actions', authenticateToken, async (req, res) => {
           [data.status, device_ids]
         );
         message = `Status changed to ${data.status} for ${result.rows.length} devices`;
+        break;
+
+      case 'evacuate_rooms':
+        result = await query(
+          'UPDATE devices SET is_room_evacuated = true, updated_at = NOW() WHERE id = ANY($1) RETURNING *',
+          [device_ids]
+        );
+        
+        // Update Redis cache for each device
+        await Promise.all(
+          result.rows.map(device => 
+            set(`device_evacuation:${device.device_id}`, 'true', 300)
+          )
+        );
+        
+        message = `Evacuation status set for ${result.rows.length} devices`;
         break;
 
       default:

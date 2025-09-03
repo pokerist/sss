@@ -79,6 +79,45 @@ router.get('/system', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete hotel logo
+router.delete('/system/logo', authenticateToken, async (req, res) => {
+  try {
+    // Get current settings
+    const currentResult = await query('SELECT hotel_logo_url FROM system_settings LIMIT 1');
+    if (currentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'System settings not found' });
+    }
+
+    const currentSettings = currentResult.rows[0];
+
+    // Delete logo file if exists
+    if (currentSettings.hotel_logo_url) {
+      // Extract relative path from URL for file deletion
+      const relativePath = currentSettings.hotel_logo_url.replace(/^https?:\/\/[^\/]+/, '');
+      const logoPath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
+      if (fs.existsSync(logoPath)) {
+        fs.unlinkSync(logoPath);
+      }
+    }
+
+    // Update database to remove logo URL
+    await query(
+      'UPDATE system_settings SET hotel_logo_url = NULL, updated_at = NOW() WHERE id = 1'
+    );
+
+    logger.info('Hotel logo deleted');
+
+    res.json({
+      success: true,
+      message: 'Hotel logo deleted successfully'
+    });
+
+  } catch (error) {
+    logger.error('Delete hotel logo error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update system settings
 router.put('/system', authenticateToken, upload.single('hotel_logo'), async (req, res) => {
   try {
@@ -206,7 +245,8 @@ router.put('/system', authenticateToken, upload.single('hotel_logo'), async (req
       UPDATE system_settings 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount + 1}
-      RETURNING hotel_name, hotel_logo_url, admin_username, pms_base_url, pms_api_key, pms_username, pms_connection_status, updated_at
+      RETURNING hotel_name, hotel_logo_url, main_message, footer_credit, admin_username, 
+                pms_base_url, pms_api_key, pms_username, pms_connection_status, updated_at
     `;
     params.push(currentSettings.id);
 

@@ -28,6 +28,7 @@ CREATE TABLE devices (
   is_online BOOLEAN DEFAULT false,
   last_notification TEXT,
   assigned_bundle_id INTEGER,
+  is_room_evacuated BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -60,7 +61,20 @@ CREATE TABLE apps (
   apk_url TEXT,
   app_logo_url TEXT,
   is_allowed BOOLEAN DEFAULT true,
-  sort_order INTEGER DEFAULT 0,
+  order_index INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Latest news
+CREATE TABLE latest_news (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  paragraph TEXT,
+  image_url TEXT,
+  link TEXT,
+  order_index INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -108,12 +122,16 @@ CREATE TABLE notifications (
 -- Create indexes for better performance
 CREATE INDEX idx_devices_device_id ON devices(device_id);
 CREATE INDEX idx_devices_room_number ON devices(room_number);
+CREATE INDEX idx_devices_evacuation ON devices(is_room_evacuated);
 CREATE INDEX idx_guest_data_room_number ON guest_data(room_number);
 CREATE INDEX idx_bills_room_number ON bills(room_number);
 CREATE INDEX idx_notifications_device_id ON notifications(device_id);
 CREATE INDEX idx_notifications_room_number ON notifications(room_number);
 CREATE INDEX idx_notifications_status ON notifications(status);
 CREATE INDEX idx_notifications_scheduled_for ON notifications(scheduled_for);
+CREATE INDEX idx_apps_order_index ON apps(order_index);
+CREATE INDEX idx_latest_news_order_index ON latest_news(order_index);
+CREATE INDEX idx_latest_news_is_active ON latest_news(is_active);
 
 -- Create triggers for automatic updated_at timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -129,6 +147,7 @@ CREATE TRIGGER update_devices_updated_at BEFORE UPDATE ON devices FOR EACH ROW E
 CREATE TRIGGER update_media_bundles_updated_at BEFORE UPDATE ON media_bundles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_apps_updated_at BEFORE UPDATE ON apps FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_guest_data_updated_at BEFORE UPDATE ON guest_data FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_latest_news_updated_at BEFORE UPDATE ON latest_news FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert default system settings
 INSERT INTO system_settings (hotel_name, admin_username, admin_password_hash) 
@@ -138,7 +157,7 @@ VALUES ('Hotel TV Management', 'admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9
 INSERT INTO media_bundles (name, is_default) VALUES ('Default Bundle', true);
 
 -- Insert default apps
-INSERT INTO apps (name, package_name, is_allowed, sort_order) VALUES 
+INSERT INTO apps (name, package_name, is_allowed, order_index) VALUES 
 ('Netflix', 'com.netflix.mediaclient', true, 1),
 ('YouTube', 'com.google.android.youtube.tv', true, 2),
 ('Prime Video', 'com.amazon.avod.thirdpartyclient', true, 3),
