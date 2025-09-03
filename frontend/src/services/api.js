@@ -114,10 +114,24 @@ export const settingsAPI = {
   updateSystemSettings: (formData) => api.put('/settings/system', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  deleteHotelLogo: () => api.delete('/settings/system/logo'),
   testPMSConnection: (data) => api.post('/settings/test-pms-connection', data),
   getPMSSyncStatus: () => api.get('/settings/pms-sync-status'),
   forcePMSSync: () => api.post('/settings/force-pms-sync'),
   initializeSystem: (data) => api.post('/settings/initialize', data),
+}
+
+// Latest News API
+export const newsAPI = {
+  getNews: () => api.get('/news'),
+  createNews: (formData) => api.post('/news', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  updateNews: (id, formData) => api.put(`/news/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteNews: (id) => api.delete(`/news/${id}`),
+  reorderNews: (orders) => api.post('/news/reorder', { orders }),
 }
 
 export default api

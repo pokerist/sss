@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { devicesAPI, mediaAPI } from '../services/api'
-import { Monitor, Search, Edit, Trash2, Power, Settings, X } from 'lucide-react'
+import { Monitor, Search, Edit, Trash2, Power, Settings, X, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-function StatusBadge({ status, isOnline }) {
+function StatusBadge({ status, isOnline, isEvacuated }) {
+  if (isEvacuated) {
+    return <span className="badge badge-error">Evacuated</span>
+  }
   if (status === 'active') {
     return (
       <span className={`badge ${isOnline ? 'badge-default' : 'badge-secondary'}`}>
@@ -19,7 +22,8 @@ function DeviceEditModal({ device, bundles, onClose, onSave }) {
   const [formData, setFormData] = useState({
     room_number: device?.room_number || '',
     assigned_bundle_id: device?.assigned_bundle_id || '',
-    status: device?.status || 'inactive'
+    status: device?.status || 'inactive',
+    is_room_evacuated: device?.is_room_evacuated || false
   })
 
   const handleSubmit = (e) => {
@@ -34,7 +38,8 @@ function DeviceEditModal({ device, bundles, onClose, onSave }) {
     onSave(device.id, {
       room_number: formData.room_number.trim() || null,
       assigned_bundle_id: formData.assigned_bundle_id || null,
-      status: formData.status
+      status: formData.status,
+      is_room_evacuated: formData.is_room_evacuated
     })
   }
 
@@ -117,6 +122,19 @@ function DeviceEditModal({ device, bundles, onClose, onSave }) {
                 Room number is required for active status
               </p>
             )}
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="is_room_evacuated"
+              className="form-checkbox h-4 w-4 text-red-600"
+              checked={formData.is_room_evacuated}
+              onChange={(e) => setFormData({ ...formData, is_room_evacuated: e.target.checked })}
+            />
+            <label htmlFor="is_room_evacuated" className="ml-2 text-sm text-gray-600">
+              Room Evacuated
+            </label>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
@@ -203,6 +221,22 @@ function Devices() {
       id: device.id,
       data: { status: newStatus }
     })
+  }
+
+  const handleEvacuationToggle = (device) => {
+    if (!device.is_room_evacuated) {
+      if (confirm(`Are you sure you want to evacuate room ${device.room_number}? This will clear all guest data from the device.`)) {
+        updateDeviceMutation.mutate({
+          id: device.id,
+          data: { is_room_evacuated: true }
+        })
+      }
+    } else {
+      updateDeviceMutation.mutate({
+        id: device.id,
+        data: { is_room_evacuated: false }
+      })
+    }
   }
 
   const handleEdit = (device) => {
@@ -307,8 +341,26 @@ function Devices() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <StatusBadge status={device.status} isOnline={device.is_online} />
+                <StatusBadge 
+                  status={device.status} 
+                  isOnline={device.is_online}
+                  isEvacuated={device.is_room_evacuated}
+                />
                 
+                {/* Evacuation Toggle Button */}
+                {device.status === 'active' && device.room_number && (
+                  <button
+                    onClick={() => handleEvacuationToggle(device)}
+                    className={`btn btn-ghost btn-sm p-1 ${
+                      device.is_room_evacuated ? 'text-red-600' : 'text-yellow-600'
+                    }`}
+                    disabled={updateDeviceMutation.isLoading}
+                    title={device.is_room_evacuated ? 'Clear evacuation' : 'Evacuate room'}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                  </button>
+                )}
+
                 {/* Status Toggle Button */}
                 <button
                   onClick={() => handleStatusToggle(device)}

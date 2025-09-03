@@ -9,6 +9,7 @@ import MediaBundles from './pages/MediaBundles'
 import Apps from './pages/Apps'
 import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
+import LatestNews from './pages/LatestNews'
 import { AuthProvider } from './contexts/AuthContext'
 import { WebSocketProvider } from './contexts/WebSocketContext'
 
@@ -41,6 +42,7 @@ function AppRoutes() {
           <Route path="/devices" element={<Devices />} />
           <Route path="/media-bundles" element={<MediaBundles />} />
           <Route path="/apps" element={<Apps />} />
+          <Route path="/latest-news" element={<LatestNews />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/login" element={<Navigate to="/dashboard" replace />} />

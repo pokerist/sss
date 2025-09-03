@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
 import { appsAPI } from '../services/api'
-import { Smartphone, Plus, Upload, Trash2, Edit } from 'lucide-react'
+import { Smartphone, Plus, Upload, Trash2, Edit, GripVertical } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function Apps() {
@@ -56,6 +57,16 @@ function Apps() {
         setShowEditModal(false)
         setEditingApp(null)
         toast.success('App updated successfully')
+      }
+    }
+  )
+
+  const reorderAppsMutation = useMutation(
+    (app_orders) => appsAPI.reorderApps({ app_orders }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('apps')
+        toast.success('Apps order updated successfully')
       }
     }
   )
@@ -164,6 +175,23 @@ function Apps() {
     })
   }
 
+  const handleDragEnd = (result) => {
+    if (!result.destination) return
+
+    const appsList = apps?.data?.apps || []
+    const reorderedApps = Array.from(appsList)
+    const [reorderedItem] = reorderedApps.splice(result.source.index, 1)
+    reorderedApps.splice(result.destination.index, 0, reorderedItem)
+
+    // Update order_index for all affected apps
+    const app_orders = reorderedApps.map((app, index) => ({
+      id: app.id,
+      order_index: index
+    }))
+
+    reorderAppsMutation.mutate(app_orders)
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -223,70 +251,92 @@ function Apps() {
       </div>
 
       {/* Apps List */}
-      <div className="space-y-4">
-        {appsList
-          .filter(app => 
-            app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            app.package_name.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .map((app) => (
-          <div key={app.id} className="card p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                    {app.app_logo_url ? (
-                      <img
-                        src={app.app_logo_url}
-                        alt={app.name}
-                        className="w-8 h-8 rounded"
-                      />
-                    ) : (
-                      <Smartphone className="h-6 w-6 text-gray-400" />
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="apps">
+          {(provided) => (
+            <div
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              className="space-y-4"
+            >
+              {appsList
+                .filter(app => 
+                  app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  app.package_name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((app, index) => (
+                  <Draggable key={app.id} draggableId={app.id.toString()} index={index}>
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className="card p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div {...provided.dragHandleProps} className="cursor-move">
+                              <GripVertical className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <div className="flex items-center">
+                              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                {app.app_logo_url ? (
+                                  <img
+                                    src={app.app_logo_url}
+                                    alt={app.name}
+                                    className="w-8 h-8 rounded"
+                                  />
+                                ) : (
+                                  <Smartphone className="h-6 w-6 text-gray-400" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-medium text-gray-900">{app.name}</h3>
+                              <p className="text-sm text-gray-500">{app.package_name}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-4">
+                            <div className="flex items-center">
+                              <label className="inline-flex items-center">
+                                <input
+                                  type="checkbox"
+                                  className="form-checkbox h-4 w-4 text-blue-600"
+                                  checked={app.is_allowed}
+                                  onChange={() => handleToggleApp(app)}
+                                />
+                                <span className="ml-2 text-sm text-gray-600">Allowed</span>
+                              </label>
+                            </div>
+                            
+                            <button
+                              onClick={() => {
+                                setEditingApp(app)
+                                setShowEditModal(true)
+                              }}
+                              className="btn btn-ghost btn-sm p-1 text-blue-600"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDeleteApp(app)}
+                              className="btn btn-ghost btn-sm p-1 text-red-600"
+                              disabled={deleteAppMutation.isLoading}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     )}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-gray-900">{app.name}</h3>
-                  <p className="text-sm text-gray-500">{app.package_name}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center">
-                  <label className="inline-flex items-center">
-                    <input
-                      type="checkbox"
-                      className="form-checkbox h-4 w-4 text-blue-600"
-                      checked={app.is_allowed}
-                      onChange={() => handleToggleApp(app)}
-                    />
-                    <span className="ml-2 text-sm text-gray-600">Allowed</span>
-                  </label>
-                </div>
-                
-                <button
-                  onClick={() => {
-                    setEditingApp(app)
-                    setShowEditModal(true)
-                  }}
-                  className="btn btn-ghost btn-sm p-1 text-blue-600"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-                
-                <button
-                  onClick={() => handleDeleteApp(app)}
-                  className="btn btn-ghost btn-sm p-1 text-red-600"
-                  disabled={deleteAppMutation.isLoading}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+                  </Draggable>
+                ))}
+              {provided.placeholder}
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </Droppable>
+      </DragDropContext>
 
       {appsList.length === 0 && (
         <div className="card p-12 text-center">

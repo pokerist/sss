@@ -65,7 +65,7 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const appsResult = await query(`
       SELECT * FROM apps 
-      ORDER BY sort_order ASC, created_at ASC
+      ORDER BY order_index ASC, created_at ASC
     `);
 
     res.json({ apps: appsResult.rows });
@@ -98,9 +98,9 @@ router.post('/', authenticateToken, upload.fields([
       return res.status(400).json({ error: 'Package name already exists' });
     }
 
-    // Get max sort order
-    const maxSortResult = await query('SELECT COALESCE(MAX(sort_order), 0) as max_sort FROM apps');
-    const nextSortOrder = parseInt(maxSortResult.rows[0].max_sort) + 1;
+    // Get max order_index
+    const maxOrderResult = await query('SELECT COALESCE(MAX(order_index), 0) as max_order FROM apps');
+    const nextOrderIndex = parseInt(maxOrderResult.rows[0].max_order) + 1;
 
     // Handle file uploads
     let apkUrl = null;
@@ -120,8 +120,8 @@ router.post('/', authenticateToken, upload.fields([
     }
 
     const result = await query(
-      'INSERT INTO apps (name, package_name, apk_url, app_logo_url, is_allowed, sort_order) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, package_name, apkUrl, logoUrl, is_allowed, nextSortOrder]
+      'INSERT INTO apps (name, package_name, apk_url, app_logo_url, is_allowed, order_index) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [name, package_name, apkUrl, logoUrl, is_allowed, nextOrderIndex]
     );
 
     const newApp = result.rows[0];
@@ -158,7 +158,7 @@ router.put('/:id', authenticateToken, upload.fields([
 ]), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, package_name, is_allowed, sort_order } = req.body;
+    const { name, package_name, is_allowed, order_index } = req.body;
 
     // Get current app data
     const currentAppResult = await query('SELECT * FROM apps WHERE id = $1', [id]);
@@ -203,10 +203,10 @@ router.put('/:id', authenticateToken, upload.fields([
       params.push(is_allowed === 'true' || is_allowed === true);
     }
 
-    if (sort_order !== undefined) {
+    if (order_index !== undefined) {
       paramCount++;
-      updates.push(`sort_order = $${paramCount}`);
-      params.push(sort_order);
+      updates.push(`order_index = $${paramCount}`);
+      params.push(order_index);
     }
 
     // Handle file uploads
@@ -338,7 +338,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Update app sort order
+// Update app order
 router.post('/reorder', authenticateToken, async (req, res) => {
   try {
     const { app_orders } = req.body;
@@ -347,15 +347,15 @@ router.post('/reorder', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'app_orders array is required' });
     }
 
-    // Update sort orders in batch
-    for (const { id, sort_order } of app_orders) {
+    // Update order_index in batch
+    for (const { id, order_index } of app_orders) {
       await query(
-        'UPDATE apps SET sort_order = $1, updated_at = NOW() WHERE id = $2',
-        [sort_order, id]
+        'UPDATE apps SET order_index = $1, updated_at = NOW() WHERE id = $2',
+        [order_index, id]
       );
     }
 
-    logger.info(`App sort order updated for ${app_orders.length} apps`);
+    logger.info(`App order updated for ${app_orders.length} apps`);
 
     res.json({
       success: true,
@@ -377,9 +377,9 @@ router.post('/bulk-import', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'apps array is required' });
     }
 
-    // Get max sort order
-    const maxSortResult = await query('SELECT COALESCE(MAX(sort_order), 0) as max_sort FROM apps');
-    let nextSortOrder = parseInt(maxSortResult.rows[0].max_sort) + 1;
+    // Get max order_index
+    const maxOrderResult = await query('SELECT COALESCE(MAX(order_index), 0) as max_order FROM apps');
+    let nextOrderIndex = parseInt(maxOrderResult.rows[0].max_order) + 1;
 
     // Insert apps in batch
     const insertedApps = [];
@@ -405,8 +405,8 @@ router.post('/bulk-import', authenticateToken, async (req, res) => {
 
       // Insert new app
       const result = await query(
-        'INSERT INTO apps (name, package_name, is_allowed, sort_order) VALUES ($1, $2, $3, $4) RETURNING *',
-        [app_name, package_id, false, nextSortOrder++]
+        'INSERT INTO apps (name, package_name, is_allowed, order_index) VALUES ($1, $2, $3, $4) RETURNING *',
+        [app_name, package_id, false, nextOrderIndex++]
       );
 
       insertedApps.push(result.rows[0]);

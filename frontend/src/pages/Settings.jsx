@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Lock,
   Server,
-  Image
+  Image,
+  Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -66,13 +67,14 @@ function Settings() {
     pms_username: '',
     pms_password: ''
   })
+  const [initialFormData, setInitialFormData] = useState({})
 
   const queryClient = useQueryClient()
 
   const { data: settings, isLoading } = useQuery('system-settings', settingsAPI.getSystemSettings, {
     onSuccess: (data) => {
       const systemSettings = data?.data || {}
-      setFormData({
+      const newFormData = {
         hotel_name: systemSettings.hotel_name || '',
         main_message: systemSettings.main_message || '',
         footer_credit: systemSettings.footer_credit || '',
@@ -80,7 +82,9 @@ function Settings() {
         pms_api_key: systemSettings.pms_api_key || '',
         pms_username: systemSettings.pms_username || '',
         pms_password: ''
-      })
+      }
+      setFormData(newFormData)
+      setInitialFormData(newFormData)
     }
   })
 
@@ -90,6 +94,16 @@ function Settings() {
       onSuccess: () => {
         queryClient.invalidateQueries('system-settings')
         toast.success('Settings updated successfully')
+      }
+    }
+  )
+
+  const deleteLogoMutation = useMutation(
+    () => settingsAPI.deleteHotelLogo(),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('system-settings')
+        toast.success('Hotel logo deleted successfully')
       }
     }
   )
@@ -123,13 +137,57 @@ function Settings() {
 
   const handleHotelSettingsSubmit = (e) => {
     e.preventDefault()
-    const formData = new FormData(e.target)
-    updateSettingsMutation.mutate(formData)
+    const formElement = e.target
+    const formData = new FormData(formElement)
+    
+    // Only include fields that have changed
+    const changedFields = Object.keys(initialFormData).filter(key => {
+      const value = formElement[key]?.value
+      return value !== undefined && value !== initialFormData[key]
+    })
+
+    // If no fields have changed and no file is selected, don't submit
+    if (changedFields.length === 0 && !formElement.hotel_logo.files[0]) {
+      toast.info('No changes to save')
+      return
+    }
+
+    // Only append changed fields to FormData
+    const submitData = new FormData()
+    changedFields.forEach(key => {
+      submitData.append(key, formElement[key].value)
+    })
+
+    // Add logo if selected
+    if (formElement.hotel_logo.files[0]) {
+      submitData.append('hotel_logo', formElement.hotel_logo.files[0])
+    }
+
+    updateSettingsMutation.mutate(submitData)
   }
 
   const handlePMSSettingsSubmit = (e) => {
     e.preventDefault()
-    const formData = new FormData(e.target)
+    const formElement = e.target
+    const formData = new FormData()
+
+    // Only include fields that have changed
+    const changedFields = Object.keys(initialFormData).filter(key => {
+      const value = formElement[key]?.value
+      return value !== undefined && value !== initialFormData[key]
+    })
+
+    // If no fields have changed, don't submit
+    if (changedFields.length === 0) {
+      toast.info('No changes to save')
+      return
+    }
+
+    // Only append changed fields to FormData
+    changedFields.forEach(key => {
+      formData.append(key, formElement[key].value)
+    })
+
     updateSettingsMutation.mutate(formData)
   }
 
@@ -143,6 +201,12 @@ function Settings() {
       pms_password: formData.get('pms_password')
     }
     testPMSMutation.mutate(testData)
+  }
+
+  const handleDeleteLogo = () => {
+    if (confirm('Are you sure you want to delete the hotel logo?')) {
+      deleteLogoMutation.mutate()
+    }
   }
 
   const handlePasswordChange = async (e) => {
@@ -277,24 +341,42 @@ function Settings() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Hotel Logo
               </label>
-              <div className="flex items-center space-x-4">
-                {systemSettings.hotel_logo_url && (
-                  <img
-                    src={systemSettings.hotel_logo_url}
-                    alt="Hotel Logo"
-                    className="h-16 w-16 object-contain border rounded"
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  {systemSettings.hotel_logo_url ? (
+                    <div className="relative">
+                      <img
+                        src={systemSettings.hotel_logo_url}
+                        alt="Hotel Logo"
+                        className="h-16 w-16 object-contain border rounded"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDeleteLogo}
+                        className="absolute -top-2 -right-2 btn btn-error btn-sm p-1"
+                        title="Delete logo"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-16 w-16 border rounded flex items-center justify-center bg-gray-50">
+                      <Image className="h-8 w-8 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    name="hotel_logo"
+                    accept="image/*"
+                    className="input w-full"
                   />
-                )}
-                <input
-                  type="file"
-                  name="hotel_logo"
-                  accept="image/*"
-                  className="input flex-1"
-                />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload a logo image for your hotel. The logo will be displayed on TV devices.
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Upload a logo image for your hotel
-              </p>
             </div>
 
             <div className="flex justify-end">
