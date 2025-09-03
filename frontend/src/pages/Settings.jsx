@@ -91,8 +91,21 @@ function Settings() {
   const updateSettingsMutation = useMutation(
     (formData) => settingsAPI.updateSystemSettings(formData),
     {
-      onSuccess: () => {
+      onSuccess: (response) => {
         queryClient.invalidateQueries('system-settings')
+        // Update form state with new data
+        const systemSettings = response?.data || {}
+        const newFormData = {
+          hotel_name: systemSettings.hotel_name || '',
+          main_message: systemSettings.main_message || '',
+          footer_credit: systemSettings.footer_credit || '',
+          pms_base_url: systemSettings.pms_base_url || '',
+          pms_api_key: systemSettings.pms_api_key || '',
+          pms_username: systemSettings.pms_username || '',
+          pms_password: ''
+        }
+        setFormData(newFormData)
+        setInitialFormData(newFormData)
         toast.success('Settings updated successfully')
       }
     }

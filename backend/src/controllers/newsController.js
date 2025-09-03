@@ -1,5 +1,7 @@
 const { query } = require('../config/database');
 const logger = require('../config/logger');
+const path = require('path');
+const fs = require('fs');
 
 // Get all latest news
 const getAllNews = async (req, res) => {
@@ -18,7 +20,7 @@ const getAllNews = async (req, res) => {
 // Create news item
 const createNews = async (req, res) => {
   try {
-    const { title, paragraph, image_url, link } = req.body;
+    const { title, paragraph, link, is_active } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
@@ -30,18 +32,35 @@ const createNews = async (req, res) => {
     );
     const nextOrder = maxOrderResult.rows[0].max_order + 1;
 
+    // Generate image URL if file was uploaded
+    let imageUrl = null;
+    if (req.file) {
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+      imageUrl = `${baseUrl}/uploads/news/${req.file.filename}`;
+    }
+
     const result = await query(
       `INSERT INTO latest_news 
-       (title, paragraph, image_url, link, order_index) 
-       VALUES ($1, $2, $3, $4, $5)
+       (title, paragraph, image_url, link, is_active, order_index) 
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [title, paragraph, image_url, link, nextOrder]
+      [title, paragraph, imageUrl, link, is_active === 'true' || is_active === true, nextOrder]
     );
 
     logger.info(`News item created: ${result.rows[0].id}`);
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    // Clean up uploaded file on error
+    if (req.file) {
+      const filePath = req.file.path;
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
     logger.error('Create news error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -51,10 +70,40 @@ const createNews = async (req, res) => {
 const updateNews = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, paragraph, image_url, link, is_active } = req.body;
+    const { title, paragraph, link, is_active } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
+    }
+
+    // Get current news data for file cleanup
+    const currentNewsResult = await query(
+      'SELECT image_url FROM latest_news WHERE id = $1',
+      [id]
+    );
+
+    if (currentNewsResult.rows.length === 0) {
+      return res.status(404).json({ error: 'News item not found' });
+    }
+
+    const currentNews = currentNewsResult.rows[0];
+
+    // Generate new image URL if file was uploaded
+    let imageUrl = currentNews.image_url;
+    if (req.file) {
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+      imageUrl = `${baseUrl}/uploads/news/${req.file.filename}`;
+
+      // Delete old image file if it exists
+      if (currentNews.image_url) {
+        const relativePath = currentNews.image_url.replace(/^https?:\/\/[^\/]+/, '');
+        const oldImagePath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
     }
 
     const result = await query(
@@ -63,17 +112,21 @@ const updateNews = async (req, res) => {
            is_active = $5, updated_at = NOW()
        WHERE id = $6
        RETURNING *`,
-      [title, paragraph, image_url, link, is_active, id]
+      [title, paragraph, imageUrl, link, is_active === 'true' || is_active === true, id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'News item not found' });
-    }
 
     logger.info(`News item updated: ${id}`);
 
     res.json(result.rows[0]);
   } catch (error) {
+    // Clean up uploaded file on error
+    if (req.file) {
+      const filePath = req.file.path;
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
     logger.error('Update news error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -84,13 +137,24 @@ const deleteNews = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Get news data for file cleanup
     const result = await query(
-      'DELETE FROM latest_news WHERE id = $1 RETURNING id',
+      'DELETE FROM latest_news WHERE id = $1 RETURNING id, image_url',
       [id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'News item not found' });
+    }
+
+    // Delete image file if it exists
+    const deletedNews = result.rows[0];
+    if (deletedNews.image_url) {
+      const relativePath = deletedNews.image_url.replace(/^https?:\/\/[^\/]+/, '');
+      const imagePath = path.join(process.env.UPLOAD_PATH || './uploads', relativePath);
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
     }
 
     logger.info(`News item deleted: ${id}`);
