@@ -77,12 +77,12 @@ function Layout({ children }) {
         <div className={`fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setSidebarOpen(false)} />
         
         <div className={`fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-          <div className="flex h-16 flex-shrink-0 items-center justify-between px-4 border-b">
+          <div className="flex flex-shrink-0 items-center justify-between px-4 py-2 border-b">
             {!logoError ? (
               <img
                 src="/marmarica-logo.png"
                 alt="Marmarica"
-                className="h-12 w-auto"
+                className="h-25 w-auto my-2"
                 onError={() => setLogoError(true)}
               />
             ) : (
@@ -123,12 +123,12 @@ function Layout({ children }) {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-1 flex-col min-h-0 bg-white border-r border-gray-200">
-          <div className="flex h-16 flex-shrink-0 items-center px-4 border-b">
+          <div className="flex flex-shrink-0 items-center px-4 py-2 border-b">
             {!logoError ? (
               <img
                 src="/marmarica-logo.png"
                 alt="Marmarica"
-                className="h-12 w-auto"
+                className="h-25 w-auto my-2"
                 onError={() => setLogoError(true)}
               />
             ) : (
