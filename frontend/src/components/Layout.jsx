@@ -80,7 +80,7 @@ function Layout({ children }) {
               <img
                 src="/marmarica-logo.png"
                 alt="Marmarica"
-                className="h-8 w-auto"
+                className="h-12 w-auto"
                 onError={() => setLogoError(true)}
               />
             ) : (
@@ -126,7 +126,7 @@ function Layout({ children }) {
               <img
                 src="/marmarica-logo.png"
                 alt="Marmarica"
-                className="h-8 w-auto"
+                className="h-12 w-auto"
                 onError={() => setLogoError(true)}
               />
             ) : (
