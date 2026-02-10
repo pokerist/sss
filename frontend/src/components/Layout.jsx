@@ -34,6 +34,7 @@ function Layout({ children }) {
   const { user, logout } = useAuthContext()
   const { isConnected, connectionStatus } = useWebSocketContext()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [logoError, setLogoError] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -75,7 +76,16 @@ function Layout({ children }) {
         
         <div className={`fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex h-16 flex-shrink-0 items-center justify-between px-4 border-b">
-            <h1 className="text-xl font-semibold text-gray-900">Hotel TV Admin</h1>
+            {!logoError ? (
+              <img
+                src="/marmarica-logo.png"
+                alt="Marmarica"
+                className="h-8 w-auto"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <h1 className="text-xl font-semibold text-gray-900">Marmarica</h1>
+            )}
             <button
               type="button"
               className="btn btn-ghost p-2"
@@ -112,7 +122,16 @@ function Layout({ children }) {
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-1 flex-col min-h-0 bg-white border-r border-gray-200">
           <div className="flex h-16 flex-shrink-0 items-center px-4 border-b">
-            <h1 className="text-xl font-semibold text-gray-900">Hotel TV Admin</h1>
+            {!logoError ? (
+              <img
+                src="/marmarica-logo.png"
+                alt="Marmarica"
+                className="h-8 w-auto"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <h1 className="text-xl font-semibold text-gray-900">Marmarica</h1>
+            )}
           </div>
           
           <nav className="flex-1 space-y-1 px-2 py-4">
