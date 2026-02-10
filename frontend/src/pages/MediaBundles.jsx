@@ -363,7 +363,7 @@ function MediaBundles() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Media Bundles</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Manage Screen Savers and Default Background for Launcher</h1>
         </div>
         <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
@@ -383,7 +383,7 @@ function MediaBundles() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Media Bundles</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Manage Screen Savers and Default Background for Launcher</h1>
         <button
           onClick={() => setShowCreateModal(true)}
           className="btn btn-primary btn-md"

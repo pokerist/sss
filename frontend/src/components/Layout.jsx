@@ -15,7 +15,8 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
-  Newspaper
+  Newspaper,
+  Tv
 } from 'lucide-react'
 
 const navigation = [
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Media Bundles', href: '/media-bundles', icon: Image },
   { name: 'Apps', href: '/apps', icon: Smartphone },
   { name: 'Latest News', href: '/latest-news', icon: Newspaper },
+  { name: 'Channel Management', href: '/channel-management', icon: Tv },
   { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]

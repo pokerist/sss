@@ -178,6 +178,24 @@
   }
 }
 
+@keyframes newsTickerScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.news-ticker {
+  @apply relative overflow-hidden bg-gray-900 text-white;
+}
+
+.news-ticker-track {
+  @apply inline-flex items-center gap-12 whitespace-nowrap px-6 py-3;
+  animation: newsTickerScroll 28s linear infinite;
+}
+
 /* Table styles */
 .table {
   @apply w-full caption-bottom text-sm;
